@@ -660,6 +660,8 @@ function PlaceRow({ place, index, region }) {
       : place.kind === 'food'
         ? 'bg-coral-tint text-coral-deep'
         : 'bg-amber/15 text-amber-text'
+  const detail = place.kakaoAddress || place.tag
+  const subDetail = place.kakaoPhone || place.kakaoCategory || ''
   return (
     <a
       href={kakaoMapUrl(place, region)}
@@ -671,9 +673,13 @@ function PlaceRow({ place, index, region }) {
       <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-sq text-sm font-extrabold ${kindTone}`}>{place.icon}</span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15.5px] font-extrabold">{place.name}</p>
-        <p className="truncate text-[12.5px] font-semibold text-ink-3">{place.tag}</p>
+        <p className="truncate text-[12.5px] font-semibold text-ink-3">{detail}</p>
+        {subDetail && <p className="truncate text-[11.5px] font-semibold text-ink-muted">{subDetail}</p>}
       </div>
-      <span className="shrink-0 text-[13px] font-bold text-ink-2">{place.cost}</span>
+      <div className="shrink-0 text-right">
+        <p className="text-[13px] font-bold text-ink-2">{place.cost}</p>
+        <p className="mt-1 text-[11px] font-extrabold text-teal-deep">지도</p>
+      </div>
     </a>
   )
 }
