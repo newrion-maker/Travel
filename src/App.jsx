@@ -86,6 +86,28 @@ function buildShareUrl({ input, answers, active }) {
   return url.toString()
 }
 
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // Some in-app browsers block the modern clipboard API.
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  return copied
+}
+
 export default function App() {
   const [sharedState] = useState(readSharedState)
   const [screen, setScreen] = useState(sharedState?.screen || 'splash')
@@ -494,9 +516,9 @@ function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHo
       <BottomBar>
         {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
         <PrimaryButton
-          onClick={() => {
-            navigator.clipboard?.writeText(shareUrl)
-            setShareStatus('공유 링크를 복사했어요')
+          onClick={async () => {
+            const copied = await copyTextToClipboard(shareUrl)
+            setShareStatus(copied ? '공유 링크를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
             window.setTimeout(() => setShareStatus(''), 1800)
           }}
         >
