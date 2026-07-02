@@ -1,0 +1,328 @@
+// 코스 생성 — 기획서 §3.4 "메인/서브 구성 로직" + §4.4 프롬프트 설계 방향.
+//
+// ⚠️ 실제 제품에서는 이 함수가 아래를 수행한다 (README "교체할 자리"):
+//   1. TourAPI areaBasedList 프리페치 결과(장소 목록)
+//   2. computeNetBudget()의 순예산 + 여행기간 + 인원수 + L/F/A 비율 3세트 + 이동수단 제약
+//   을 Claude API에 구조화 프롬프트로 전달 → JSON 코스 3개 파싱.
+//
+// 여기서는 API 키 없이 동작하도록 동일한 "출력 스키마"를 mock 데이터로 생성한다.
+// courses[] 스키마는 README State Management 절을 바탕으로 하되, 기간별 표시를 위해 days[]를 추가한다.
+//   { key, label, accent, title, budget, ratios:{stay,food,sight}, transit, places:[...], days:[...] }
+
+import { computeNetBudget, budgetBand } from './budget.js'
+import { LABELS, LABEL_ACCENT } from './personality.js'
+
+// 축별 대표 비율 프로파일 (전일정 기준). 당일치기면 stay 제거 후 재정규화.
+const RATIO_PROFILE = {
+  L: { stay: 50, food: 28, sight: 22 },
+  F: { stay: 25, food: 42, sight: 33 },
+  A: { stay: 20, food: 25, sight: 55 },
+}
+
+// 강릉 큐레이션 장소 세트 (스크린샷 기준 데모 데이터).
+// kind: stay|food|sight, icon 한글 이니셜: 숙/식/관/카/체
+const PLACES_GANGNEUNG = {
+  L: [
+    { icon: '숙', kind: 'stay', name: '씨마크 호텔', tag: '숙박 · 스파', cost: '12만원선' },
+    { icon: '식', kind: 'food', name: '호텔 다이닝', tag: '저녁 · 코스', cost: '3만원선' },
+    { icon: '카', kind: 'food', name: '테라로사 커피', tag: '카페 · 로스터리', cost: '1만원' },
+    { icon: '관', kind: 'sight', name: '경포호 산책', tag: '관광 · 힐링', cost: '무료' },
+  ],
+  F: [
+    { icon: '숙', kind: 'stay', name: '세인트존스 호텔', tag: '숙박 · 오션뷰', cost: '9만원선' },
+    { icon: '식', kind: 'food', name: '초당순두부 마을', tag: '점심 · 로컬 맛집', cost: '8천원~' },
+    { icon: '관', kind: 'sight', name: '오죽헌', tag: '관광 · 역사', cost: '3천원' },
+    { icon: '카', kind: 'food', name: '봉봉방앗간', tag: '디저트 · 카페', cost: '1.5만원' },
+    { icon: '관', kind: 'sight', name: '안목 커피거리', tag: '관광 · 야경', cost: '무료' },
+  ],
+  A: [
+    { icon: '체', kind: 'sight', name: '정동진 레일바이크', tag: '체험 · 액티비티', cost: '2.5만원' },
+    { icon: '관', kind: 'sight', name: '하슬라 아트월드', tag: '관광 · 전시', cost: '1.8만원' },
+    { icon: '식', kind: 'food', name: '중앙시장 먹거리', tag: '점심 · 길거리', cost: '8천원~' },
+    { icon: '숙', kind: 'stay', name: '강릉 게스트하우스', tag: '숙박 · 도미토리', cost: '3만원선' },
+    { icon: '관', kind: 'sight', name: '주문진 방파제', tag: '관광 · 포토', cost: '무료' },
+  ],
+}
+
+// 비-강릉 지역용 제네릭 mock (도시명 주입). 실제로는 TourAPI 결과로 대체된다.
+function genericPlaces(city, axis) {
+  const S = { icon: '숙', kind: 'stay' }
+  const F = { icon: '식', kind: 'food' }
+  const C = { icon: '카', kind: 'food' }
+  const G = { icon: '관', kind: 'sight' }
+  const E = { icon: '체', kind: 'sight' }
+  const sets = {
+    L: [
+      { ...S, name: `${city} 시그니처 호텔`, tag: '숙박 · 프리미엄', cost: '11만원선' },
+      { ...F, name: `${city} 호텔 다이닝`, tag: '저녁 · 코스', cost: '3만원선' },
+      { ...C, name: `${city} 오션뷰 카페`, tag: '카페 · 뷰맛집', cost: '1만원' },
+      { ...G, name: `${city} 대표 명소`, tag: '관광 · 힐링', cost: '무료' },
+    ],
+    F: [
+      { ...S, name: `${city} 부티크 호텔`, tag: '숙박 · 위치 좋음', cost: '9만원선' },
+      { ...F, name: `${city} 로컬 맛집`, tag: '점심 · 현지 인기', cost: '1만원~' },
+      { ...G, name: `${city} 역사 명소`, tag: '관광 · 역사', cost: '3천원' },
+      { ...C, name: `${city} 디저트 카페`, tag: '디저트 · 카페', cost: '1.5만원' },
+      { ...G, name: `${city} 야경 스팟`, tag: '관광 · 야경', cost: '무료' },
+    ],
+    A: [
+      { ...E, name: `${city} 액티비티`, tag: '체험 · 액티비티', cost: '2.5만원' },
+      { ...G, name: `${city} 전시관`, tag: '관광 · 전시', cost: '1.8만원' },
+      { ...F, name: `${city} 재래시장 먹거리`, tag: '점심 · 길거리', cost: '8천원~' },
+      { ...S, name: `${city} 게스트하우스`, tag: '숙박 · 도미토리', cost: '3만원선' },
+      { ...G, name: `${city} 포토 스팟`, tag: '관광 · 포토', cost: '무료' },
+    ],
+  }
+  return sets[axis]
+}
+
+function placeMidCost(place) {
+  const min = Number(place.minCost) || 0
+  const max = Number(place.maxCost) || min
+  return (min + max) / 2
+}
+
+function budgetTier({ net, party, period, isDayTrip }) {
+  const days = tripDays(period)
+  const nights = isDayTrip ? 0 : Math.max(days - 1, 1)
+  const dailyPerPerson = net / Math.max(party * days, 1)
+  const stayBudget = nights ? net * 0.55 / nights : 0
+
+  if ((!isDayTrip && stayBudget < 90000) || dailyPerPerson < 45000) return 'low'
+  if ((!isDayTrip && stayBudget > 160000) || dailyPerPerson > 90000) return 'high'
+  return 'mid'
+}
+
+function sortPlacesForBudget(places, tier, kind) {
+  const target = {
+    low: { stay: 65000, food: 9000, sight: 0 },
+    mid: { stay: 110000, food: 16000, sight: 7000 },
+    high: { stay: 190000, food: 35000, sight: 18000 },
+  }[tier]?.[kind] ?? 0
+
+  return [...places].sort((a, b) => {
+    const aCost = placeMidCost(a)
+    const bCost = placeMidCost(b)
+    if (tier === 'low') return aCost - bCost
+    if (tier === 'high') return bCost - aCost
+    return Math.abs(aCost - target) - Math.abs(bCost - target)
+  })
+}
+
+function buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier) {
+  if (!Array.isArray(tourPlaces) || tourPlaces.length < 3) return fallbackPlaces
+
+  const byKind = {
+    stay: sortPlacesForBudget(tourPlaces.filter((place) => place.kind === 'stay'), tier, 'stay'),
+    food: sortPlacesForBudget(tourPlaces.filter((place) => place.kind === 'food'), tier, 'food'),
+    sight: sortPlacesForBudget(tourPlaces.filter((place) => place.kind === 'sight'), tier, 'sight'),
+  }
+  const shape = {
+    L: ['stay', 'food', 'sight', 'food', 'sight'],
+    F: ['food', 'food', 'sight', 'food', 'stay'],
+    A: ['sight', 'sight', 'food', 'sight', 'stay'],
+  }[axis]
+  const used = new Set()
+  const result = []
+
+  for (const kind of shape) {
+    const fromApi = byKind[kind]?.find((place) => !used.has(place.name))
+    const fromFallback = fallbackPlaces.find((place) => place.kind === kind && !used.has(place.name))
+    const place = fromApi || fromFallback
+    if (place) {
+      used.add(place.name)
+      result.push(place)
+    }
+  }
+
+  for (const place of fallbackPlaces) {
+    if (result.length >= 5) break
+    if (!used.has(place.name)) {
+      used.add(place.name)
+      result.push(place)
+    }
+  }
+
+  return result.length >= 3 ? result : fallbackPlaces
+}
+
+const AXIS_WORD = { L: '호캉스', F: '미식', A: '알뜰' }
+
+const DAY_PLACE_TARGETS = {
+  1: [4],
+  2: [3, 4],
+  3: [3, 3, 4],
+}
+
+const FIRST_DAY_TARGET_BY_ARRIVAL = {
+  오전: 4,
+  오후: 3,
+  저녁: 2,
+}
+
+// 이동수단 제약(§4.2) 반영 동선 안내 문구
+function transitText(axis, transit) {
+  const byCar = transit === '자차'
+  const base = byCar ? '자차 이동 기준' : '대중교통 이동 기준'
+  const tail = {
+    L: byCar ? '숙소를 중심으로 여유롭게 도는 동선이에요.' : '숙소·역 접근이 좋은 장소 위주로 묶었어요.',
+    F: byCar ? '해안도로를 따라 도는 동선이라 맛집 이동이 편해요.' : '역세권 맛집 위주라 도보·버스로 이동이 편해요.',
+    A: byCar ? '근교 명소까지 넓게 도는 알찬 동선이에요.' : '버스 접근이 쉬운 명소 위주로 알차게 묶었어요.',
+  }
+  return `${base} · ${tail[axis]}`
+}
+
+// 여행기간(당일치기) 반영: stay 제거 후 food/sight 재정규화 (§4.3)
+function ratioForPeriod(axis, isDayTrip) {
+  const p = RATIO_PROFILE[axis]
+  if (!isDayTrip) return { ...p }
+  const sum = p.food + p.sight
+  const food = Math.round((p.food / sum) * 100)
+  return { stay: 0, food, sight: 100 - food }
+}
+
+function shortCity(region) {
+  // "강원 강릉시" → "강릉", "부산 해운대구" → "해운대"
+  const parts = String(region || '').trim().split(/\s+/)
+  const last = parts[parts.length - 1] || region || ''
+  return last.replace(/(특별시|광역시|특별자치시|특별자치도|시|군|구)$/u, '') || last
+}
+
+function tripDays(period) {
+  if (period === '당일치기') return 1
+  if (period === '1박2일') return 2
+  return 3
+}
+
+function extraPlaces(city, axis) {
+  const byAxis = {
+    L: [
+      { icon: '관', kind: 'sight', name: `${city} 해변 산책로`, tag: '관광 · 산책', cost: '무료' },
+      { icon: '카', kind: 'food', name: `${city} 브런치 카페`, tag: '아침 · 카페', cost: '1.2만원' },
+      { icon: '식', kind: 'food', name: `${city} 로컬 한상`, tag: '점심 · 한식', cost: '1.5만원~' },
+      { icon: '관', kind: 'sight', name: `${city} 전망대`, tag: '관광 · 포토', cost: '무료' },
+      { icon: '카', kind: 'food', name: `${city} 디저트 라운지`, tag: '디저트 · 휴식', cost: '1만원' },
+    ],
+    F: [
+      { icon: '식', kind: 'food', name: `${city} 아침 국밥집`, tag: '아침 · 로컬', cost: '9천원~' },
+      { icon: '카', kind: 'food', name: `${city} 베이커리 카페`, tag: '디저트 · 인기', cost: '1.3만원' },
+      { icon: '식', kind: 'food', name: `${city} 해산물 식당`, tag: '저녁 · 맛집', cost: '2.5만원~' },
+      { icon: '관', kind: 'sight', name: `${city} 골목 산책`, tag: '관광 · 로컬', cost: '무료' },
+      { icon: '식', kind: 'food', name: `${city} 시장 분식`, tag: '간식 · 시장', cost: '7천원~' },
+    ],
+    A: [
+      { icon: '관', kind: 'sight', name: `${city} 무료 전시관`, tag: '관광 · 전시', cost: '무료' },
+      { icon: '체', kind: 'sight', name: `${city} 해안 트레킹`, tag: '체험 · 걷기', cost: '무료' },
+      { icon: '식', kind: 'food', name: `${city} 시장 백반`, tag: '점심 · 가성비', cost: '8천원~' },
+      { icon: '관', kind: 'sight', name: `${city} 야경 산책`, tag: '관광 · 야경', cost: '무료' },
+      { icon: '카', kind: 'food', name: `${city} 동네 카페`, tag: '카페 · 휴식', cost: '7천원~' },
+    ],
+  }
+  return byAxis[axis]
+}
+
+function firstDaySummary(arrivalTime, isDayTrip) {
+  if (arrivalTime === '오전') return isDayTrip ? '오전 도착 · 알찬 당일 동선' : '오전 도착 · 점심부터 시작'
+  if (arrivalTime === '저녁') return isDayTrip ? '저녁 도착 · 짧은 핵심 동선' : '저녁 도착 · 식사와 숙소 중심'
+  return isDayTrip ? '오후 도착 · 핵심 당일 동선' : '오후 도착 · 가벼운 시작'
+}
+
+function orderFirstDayPlaces(places, arrivalTime) {
+  if (arrivalTime === '오전') return places
+  if (arrivalTime === '저녁') {
+    return [...places].sort((a, b) => {
+      const score = { food: 0, stay: 1, sight: 2 }
+      return (score[a.kind] ?? 3) - (score[b.kind] ?? 3)
+    })
+  }
+  return [...places].sort((a, b) => {
+    const score = { food: 0, sight: 1, stay: 2 }
+    return (score[a.kind] ?? 3) - (score[b.kind] ?? 3)
+  })
+}
+
+function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, isDayTrip }) {
+  const totalDays = tripDays(period)
+  const targets = [...DAY_PLACE_TARGETS[totalDays]]
+  targets[0] = Math.min(targets[0], FIRST_DAY_TARGET_BY_ARRIVAL[arrivalTime] ?? targets[0])
+  const stay = places.find((place) => place.kind === 'stay')
+  const nonStayBase = places.filter((place) => place.kind !== 'stay')
+  const nonStayPool = orderFirstDayPlaces([...nonStayBase, ...extraPlaces(city, axis)], arrivalTime)
+  const days = []
+  let cursor = 0
+
+  for (let day = 1; day <= totalDays; day += 1) {
+    const isStayNight = !isDayTrip && day < totalDays && stay
+    const nonStayCount = targets[day - 1] - (isStayNight ? 1 : 0)
+    const dayPlaces = []
+
+    for (let i = 0; i < nonStayCount; i += 1) {
+      dayPlaces.push(nonStayPool[cursor % nonStayPool.length])
+      cursor += 1
+    }
+
+    if (isStayNight) {
+      dayPlaces.push({
+        ...stay,
+        name: totalDays > 2 ? `${stay.name} (${day}박)` : stay.name,
+        tag: `${day}박 숙소 · ${stay.tag.replace(/^숙박 ·\s*/u, '')}`,
+      })
+    }
+
+    days.push({
+      day,
+      title: `${day}일차`,
+      summary: day === 1 ? firstDaySummary(arrivalTime, isDayTrip) : day === totalDays ? '마무리 동선' : isStayNight ? `${day}박 포함 동선` : '핵심 방문 동선',
+      places: dayPlaces,
+    })
+  }
+
+  return days
+}
+
+/**
+ * @param {object} input  FlowContext input (region, period, transit, budget, fareIncluded ...)
+ * @param {object} personality  computePersonality() 결과
+ * @returns {Array} 코스 3개 (메인 먼저, 서브 2개)
+ */
+export function generateCourses(input, personality, tourPlaces = []) {
+  const { region, period, arrivalTime, transit, budget, fareIncluded, party = 1 } = input
+  const isDayTrip = personality.isDayTrip
+  const city = shortCity(region)
+  const { net } = computeNetBudget(Number(budget) || 0, transit, fareIncluded)
+  const band = budgetBand(net)
+  const tier = budgetTier({ net, party, period, isDayTrip })
+
+  const isGangneung = /강릉/.test(region || '')
+  const hasApiPlaces = Array.isArray(tourPlaces) && tourPlaces.length >= 3
+
+  // 메인 먼저, 나머지 두 축을 서브로 (§3.4)
+  const order = [personality.top, ...['L', 'F', 'A'].filter((a) => a !== personality.top)]
+
+  return order.map((axis) => {
+    const fallbackPlaces = isGangneung ? PLACES_GANGNEUNG[axis] : genericPlaces(city, axis)
+    const basePlaces = buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier)
+    const days = buildDayPlans({
+      city,
+      axis,
+      period,
+      arrivalTime,
+      places: basePlaces,
+      isDayTrip,
+    })
+    const places = days.flatMap((day) => day.places)
+    return {
+      key: axis,
+      label: LABELS[axis], // "미식 우선형" 등
+      accent: LABEL_ACCENT[axis], // teal | coral | amber
+      title: `${city} ${AXIS_WORD[axis]} 코스`,
+      budget: band,
+      ratios: ratioForPeriod(axis, isDayTrip),
+      transit: transitText(axis, transit),
+      source: hasApiPlaces ? 'tourApi' : 'sample',
+      budgetTier: tier,
+      days,
+      places,
+    }
+  })
+}
