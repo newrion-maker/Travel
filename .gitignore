@@ -5,4 +5,6 @@
 node_modules
 dist
 upload-travel
-src/assets/splash-travel .png
+upload-git-store
+.claude/
+*.log

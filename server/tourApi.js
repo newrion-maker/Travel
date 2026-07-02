@@ -47,6 +47,30 @@ function tourApiKey() {
   return process.env.TOUR_API_KEY || process.env.VITE_TOUR_API_KEY || ''
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// data.go.kr(TourAPI)은 간헐적으로 503/500을 반환한다. 일시 장애면 짧은 백오프 후 재시도.
+async function fetchWithRetry(url, { retries = 2, backoffMs = 500 } = {}) {
+  let lastResponse
+  let lastError
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    if (attempt > 0) await delay(backoffMs * attempt)
+    try {
+      const response = await fetch(url)
+      if (response.status < 500) return response // 성공 또는 4xx(클라이언트 오류)는 그대로 반환
+      lastResponse = response // 5xx는 일시 장애 가능 → 재시도 대상
+    } catch (error) {
+      lastError = error // 네트워크 오류 → 재시도 대상
+    }
+  }
+
+  if (lastResponse) return lastResponse
+  throw lastError
+}
+
 function regionParams(region) {
   return REGION_CODES[region] ?? REGION_CODES['강원 강릉시']
 }
@@ -93,9 +117,10 @@ export async function fetchTourPlaces(region) {
     sigunguCode,
   })
   const serviceKey = key.includes('%') ? key : encodeURIComponent(key)
-  const response = await fetch(`${TOUR_API_BASE}/areaBasedList2?serviceKey=${serviceKey}&${params.toString()}`)
+  const response = await fetchWithRetry(`${TOUR_API_BASE}/areaBasedList2?serviceKey=${serviceKey}&${params.toString()}`)
 
   if (!response.ok) {
+    console.warn(`[tourApi] ${region} 실시간 장소 조회 실패 (HTTP ${response.status}) → 샘플 데이터로 대체`)
     throw new Error(`TourAPI request failed: ${response.status}`)
   }
 

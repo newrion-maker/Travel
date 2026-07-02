@@ -4,10 +4,10 @@ import { formatKRW } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
-import splashTravel from './assets/splash-travel.png'
-import personalityFood from './assets/personality-food.png'
-import personalitySight from './assets/personality-sight.png'
-import personalityStay from './assets/personality-stay.png'
+import splashTravel from './assets/splash-travel.webp'
+import personalityFood from './assets/personality-food.webp'
+import personalitySight from './assets/personality-sight.webp'
+import personalityStay from './assets/personality-stay.webp'
 
 const initialInput = {
   region: '강원 강릉시',
@@ -494,7 +494,10 @@ function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive
       <div className="flex-1 overflow-y-auto px-5 pb-28 pt-4">
         <article className="animate-fade-in rounded-card-lg bg-white p-5 shadow-card">
           <div className="flex items-start justify-between gap-3">
-            <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${tone.chip}`}>{course.label} 코스</span>
+            <div className="flex flex-col items-start gap-2">
+              <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${tone.chip}`}>{course.label} 코스</span>
+              <DataSourceBadge source={course.source} />
+            </div>
             <div className="text-right">
               <p className="text-[11px] font-bold text-ink-3">예상 비용</p>
               <p className="text-base font-extrabold">{course.budget}</p>
@@ -504,8 +507,7 @@ function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive
           <p className="mt-2 text-[13px] font-semibold text-ink-2">
             숙박 {course.ratios.stay}% · 식비 {course.ratios.food}% · 관광 {course.ratios.sight}%
           </p>
-          <RatioBar ratios={course.ratios} className="mt-5" />
-          <AiPlanSummary plan={course.aiPlan} source={planSource} />
+          <RatioBar ratios={course.ratios} className="mt-4" />
           {dayPlans.length > 1 && (
             <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
               {dayPlans.map((day, idx) => (
@@ -522,9 +524,7 @@ function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive
               ))}
             </div>
           )}
-          <SlotPreview slots={course.aiPlan?.slots} className="mt-5" />
-          <MapPreview places={currentDay.places} source={course.source} className="mt-6" />
-          <div className="mt-6 border-t border-line-hair pt-5">
+          <div className="mt-5">
             <div className="flex items-end justify-between gap-3">
               <p className="text-[12.5px] font-extrabold text-ink-3">{currentDay.title} 코스 동선</p>
               <span className="text-[12px] font-bold text-teal-deep">{currentDay.summary}</span>
@@ -535,9 +535,11 @@ function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive
               ))}
             </div>
           </div>
+          <MapPreview places={currentDay.places} source={course.source} className="mt-5" />
           <div className="mt-5 rounded-[13px] bg-screen px-4 py-4 text-[13px] font-bold leading-relaxed text-ink-2">
             <span className="text-teal-deep">이동 안내</span> · {course.transit}
           </div>
+          <AiPlanSummary plan={course.aiPlan} source={planSource} />
         </article>
       </div>
       <BottomBar>
@@ -657,60 +659,66 @@ function TravelBadge({ className }) {
   )
 }
 
+function DataSourceBadge({ source }) {
+  const live = source === 'tourApi'
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold ${
+        live ? 'bg-teal-tint text-teal-deep' : 'bg-[#EEF3F3] text-ink-3'
+      }`}
+      title={live ? '관광공사 TourAPI 실시간 장소를 반영했어요' : '실시간 장소를 불러오지 못해 샘플 데이터로 보여드려요'}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-teal' : 'bg-[#B6C2C2]'}`} />
+      {live ? '실시간 장소 반영' : '샘플 데이터'}
+    </span>
+  )
+}
+
 function AiPlanSummary({ plan, source }) {
+  const [open, setOpen] = useState(false)
   if (!plan) return null
   const sourceLabel = source === 'openai' ? '실시간 AI 반영' : source === 'loading' ? 'AI 확인 중' : '기본 추천'
   const sourceTone = source === 'openai' ? 'bg-teal text-white' : source === 'loading' ? 'bg-amber/20 text-amber-text' : 'bg-white text-ink-3'
 
   return (
-    <section className="mt-5 rounded-[14px] bg-screen px-4 py-4 text-left">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[12px] font-extrabold text-teal-deep">AI 예산 진단</p>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold ${sourceTone}`}>{sourceLabel}</span>
-      </div>
-      <p className="mt-2 text-[14px] font-bold leading-relaxed text-ink">{plan.summary}</p>
-      <div className="mt-4 grid gap-2">
-        {plan.budgetTable?.map((item) => (
-          <div key={item.label} className="flex items-center justify-between rounded-[10px] bg-white px-3 py-2">
-            <span className="text-[13px] font-bold text-ink-2">{item.label}</span>
-            <span className="text-[13px] font-extrabold text-ink">{formatKRW(item.amount)}원</span>
+    <section className="mt-5 overflow-hidden rounded-[14px] bg-screen text-left">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3.5"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="text-[12.5px] font-extrabold text-teal-deep">AI 예산 진단</span>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${sourceTone}`}>{sourceLabel}</span>
+        </span>
+        <span className="flex items-center gap-1.5 shrink-0 text-[11.5px] font-bold text-ink-3">
+          {open ? '접기' : '자세히'}
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
+            <path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4">
+          <p className="text-[14px] font-bold leading-relaxed text-ink">{plan.summary}</p>
+          <div className="mt-4 grid gap-2">
+            {plan.budgetTable?.map((item) => (
+              <div key={item.label} className="flex items-center justify-between rounded-[10px] bg-white px-3 py-2">
+                <span className="text-[13px] font-bold text-ink-2">{item.label}</span>
+                <span className="text-[13px] font-extrabold text-ink">{formatKRW(item.amount)}원</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div className="mt-4 grid gap-2">
-        {plan.strategy?.map((text) => (
-          <p key={text} className="rounded-[10px] bg-white px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-ink-2">
-            {text}
-          </p>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function SlotPreview({ slots, className = '' }) {
-  if (!slots?.length) return null
-
-  return (
-    <section className={className}>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-[12.5px] font-extrabold text-ink-3">AI 추천 흐름</p>
-        <span className="text-[11.5px] font-bold text-teal-deep">장소 검증 전 슬롯</span>
-      </div>
-      <div className="grid gap-2">
-        {slots.slice(0, 6).map((slot, idx) => (
-          <div key={`${slot.day}-${slot.time}-${idx}`} className="flex items-center gap-3 rounded-[12px] border border-line bg-white px-3 py-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sq bg-teal-tint text-[12px] font-extrabold text-teal-deep">
-              {slot.day}D
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-extrabold text-ink">{slot.time}</p>
-              <p className="truncate text-[12.5px] font-semibold text-ink-3">{slot.keyword}</p>
-            </div>
-            <span className="rounded-full bg-screen px-2 py-1 text-[11px] font-bold text-ink-2">{slot.type}</span>
+          <div className="mt-4 grid gap-2">
+            {plan.strategy?.map((text) => (
+              <p key={text} className="rounded-[10px] bg-white px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-ink-2">
+                {text}
+              </p>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </section>
   )
 }
