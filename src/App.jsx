@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { QUESTIONS } from './data/questions.js'
 import regionData from './data/regions.json'
-import { formatKRW } from './lib/budget.js'
+import { formatKRW, sumCostRange, budgetState, formatPlaceCost } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
@@ -20,7 +20,7 @@ const initialInput = {
   fareIncluded: true,
 }
 
-const periods = ['당일치기', '1박2일', '2박3일 이상']
+const periods = ['당일치기', '1박2일', '2박3일']
 const arrivalTimes = ['오전', '오후', '저녁']
 const transits = ['자차', '대중교통']
 const accentClass = {
@@ -249,6 +249,7 @@ export default function App() {
           <CoursesScreen
             input={input}
             courses={courses}
+            tourPlaces={tourPlaces}
             aiPlans={aiPlans}
             aiPlanSource={aiPlanSource}
             active={activeCourse}
@@ -571,7 +572,7 @@ function LoadingScreen() {
   )
 }
 
-function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
+function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
   const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
@@ -615,10 +616,17 @@ function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive
             </div>
           </div>
           <h2 className="mt-5 text-[21px] font-extrabold">{course.title}</h2>
-          <p className="mt-2 text-[13px] font-semibold text-ink-2">
-            숙박 {course.ratios.stay}% · 식비 {course.ratios.food}% · 관광 {course.ratios.sight}%
-          </p>
+          <div className="mt-2 flex items-start gap-1.5">
+            <span className="mt-0.5 shrink-0 rounded-full bg-[#EAF2F1] px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">AI</span>
+            <p className="text-[12.5px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan?.summary || '예산에 맞춰 코스를 정리했어요.'}</p>
+          </div>
           <RatioBar ratios={course.ratios} className="mt-4" />
+          <div className="mt-1.5 flex gap-3 text-[11px] font-semibold text-ink-3">
+            <span>숙박 {course.ratios.stay}%</span>
+            <span>식비 {course.ratios.food}%</span>
+            <span>관광 {course.ratios.sight}%</span>
+          </div>
+          <BudgetMeter course={course} />
           {dayPlans.length > 1 && (
             <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
               {dayPlans.map((day, idx) => (
@@ -650,7 +658,7 @@ function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive
           <div className="mt-5 rounded-[13px] bg-screen px-4 py-4 text-[13px] font-bold leading-relaxed text-ink-2">
             <span className="text-teal-deep">이동 안내</span> · {course.transit}
           </div>
-          <AiPlanSummary plan={course.aiPlan} source={planSource} />
+          <NearbyRecommendations tourPlaces={tourPlaces} coursePlaces={course.places} region={input.region} />
         </article>
       </div>
       <BottomBar>
@@ -785,49 +793,194 @@ function DataSourceBadge({ source }) {
   )
 }
 
-function AiPlanSummary({ plan, source }) {
+const BUDGET_TONE = {
+  under: { bg: 'bg-teal-tint', accent: 'text-teal-deep', pill: 'bg-teal text-white', bar: 'bg-teal', track: 'bg-[#DCEEEA]', divide: 'border-[#DCEEEA]', label: '예산 안', check: true },
+  near: { bg: 'bg-amber/15', accent: 'text-amber-text', pill: 'bg-amber text-[#5A3E08]', bar: 'bg-amber', track: 'bg-[#EFE2C4]', divide: 'border-[#EADFC2]', label: '예산 근처', check: false },
+  over: { bg: 'bg-[#FDECEC]', accent: 'text-[#C0362F]', pill: 'bg-[#E5484D] text-white', bar: 'bg-[#E5484D]', track: 'bg-[#F6D9D9]', divide: 'border-[#F3D3D3]', label: '예산 초과', check: false },
+}
+
+function BudgetMeter({ course }) {
   const [open, setOpen] = useState(false)
-  if (!plan) return null
-  const sourceLabel = source === 'openai' ? '실시간 AI 반영' : source === 'loading' ? 'AI 확인 중' : '기본 추천'
-  const sourceTone = source === 'openai' ? 'bg-teal text-white' : source === 'loading' ? 'bg-amber/20 text-amber-text' : 'bg-white text-ink-3'
+  const net = course.budgetNet || 0
+  const targets = course.budgetTargets || { stay: 0, food: 0, sight: 0 }
+  const placesOf = (kind) => (course.places || []).filter((p) => p.kind === kind)
+  const total = sumCostRange(course.places)
+  const state = budgetState(total, net)
+  const t = BUDGET_TONE[state]
+  const mid = Math.round((total.min + total.max) / 2)
+
+  const axisMax = Math.max(net * 1.35, total.max * 1.05, 1)
+  const pos = (v) => `${Math.max(0, Math.min(100, (v / axisMax) * 100))}%`
+  const netPct = pos(net)
+
+  const cats = [
+    { label: '숙박', target: targets.stay, actual: sumCostRange(placesOf('stay')) },
+    { label: '식비', target: targets.food, actual: sumCostRange(placesOf('food')) },
+    { label: '관광', target: targets.sight, actual: sumCostRange(placesOf('sight')) },
+  ].filter((c) => c.target > 0 || c.actual.max > 0)
 
   return (
-    <section className="mt-5 overflow-hidden rounded-[14px] bg-screen text-left">
+    <section className={`mt-4 overflow-hidden rounded-[14px] ${t.bg}`}>
+      <div className="px-4 pb-3 pt-3.5">
+        <div className="flex items-center justify-between">
+          <span className={`text-[12px] font-extrabold ${t.accent}`}>예산 사용</span>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold ${t.pill}`}>
+            {t.check && (
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 6.5 5 9l4.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+            {t.label}
+          </span>
+        </div>
+        <p className="mt-2 text-[13.5px] text-ink">
+          {state === 'under' ? (
+            <>
+              <b className="font-extrabold">선택 합계 ~{formatKRW(mid)}원</b> <span className="text-ink-3">/ {formatKRW(net)}원</span> · 여유 ~{formatKRW(Math.max(0, net - mid))}원
+            </>
+          ) : state === 'over' ? (
+            <>
+              <b className="font-extrabold">선택 합계 {formatKRW(total.min)}~{formatKRW(total.max)}원</b> · 예산 {formatKRW(net)}원 초과
+            </>
+          ) : (
+            <>
+              <b className="font-extrabold">선택 합계 {formatKRW(total.min)}~{formatKRW(total.max)}원</b> · 예산 안에 들 수도, 넘을 수도
+            </>
+          )}
+        </p>
+        <div className="relative mt-3 h-2.5">
+          <div className={`absolute inset-0 rounded-full ${t.track}`} />
+          {state === 'near' ? (
+            <>
+              <div className="absolute top-0 h-2.5 rounded-full bg-teal" style={{ left: pos(total.min), width: `calc(${netPct} - ${pos(total.min)})` }} />
+              <div className="absolute top-0 h-2.5 rounded-full bg-amber" style={{ left: netPct, width: `calc(${pos(total.max)} - ${netPct})` }} />
+            </>
+          ) : (
+            <div className={`absolute top-0 h-2.5 rounded-full ${t.bar}`} style={{ left: pos(total.min), width: `calc(${pos(total.max)} - ${pos(total.min)})` }} />
+          )}
+          <div className="absolute bg-ink-2" style={{ left: netPct, top: '-3px', width: '2px', height: '16px' }} />
+        </div>
+      </div>
+
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3.5"
+        className={`flex w-full items-center justify-between border-t px-4 py-2.5 text-[11.5px] font-bold text-ink-2 ${t.divide}`}
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="text-[12.5px] font-extrabold text-teal-deep">AI 예산 진단</span>
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${sourceTone}`}>{sourceLabel}</span>
-        </span>
-        <span className="flex items-center gap-1.5 shrink-0 text-[11.5px] font-bold text-ink-3">
+        <span>카테고리별 목표 대비</span>
+        <span className="flex items-center gap-1 text-ink-3">
           {open ? '접기' : '자세히'}
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
+            <path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 pt-1">
+          <div className="grid gap-2.5">
+            {cats.map((c) => {
+              const aMid = Math.round((c.actual.min + c.actual.max) / 2)
+              const over = c.target > 0 && aMid > c.target
+              const axis = Math.max(c.target * 1.4, c.actual.max * 1.05, 1)
+              const p = (v) => `${Math.max(0, Math.min(100, (v / axis) * 100))}%`
+              return (
+                <div key={c.label}>
+                  <div className="flex justify-between text-[11.5px]">
+                    <span className="text-ink-2">{c.label}</span>
+                    <span>
+                      {formatKRW(aMid)} <span className="text-ink-3">/ 목표 {formatKRW(c.target)}</span>
+                    </span>
+                  </div>
+                  <div className="relative mt-1 h-2 rounded-full bg-white/70">
+                    <div className={`absolute top-0 h-2 rounded-full ${over ? 'bg-amber' : 'bg-teal'}`} style={{ width: p(aMid) }} />
+                    {c.target > 0 && <div className="absolute bg-ink-2" style={{ left: p(c.target), top: '-2px', width: '2px', height: '12px' }} />}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {course.aiPlan?.strategy?.length ? (
+            <div className={`mt-3 grid gap-1.5 border-t pt-2.5 ${t.divide}`}>
+              {course.aiPlan.strategy.map((text) => (
+                <p key={text} className="text-[11.5px] font-semibold leading-relaxed text-ink-2">· {text}</p>
+              ))}
+            </div>
+          ) : null}
+          <div className={`mt-3 flex flex-col gap-1 border-t pt-2.5 text-[10.5px] text-ink-2 ${t.divide}`}>
+            <span><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-teal align-middle" />예산 안 — 최대치도 예산 이하</span>
+            <span><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-amber align-middle" />예산 근처 — 범위가 예산에 걸침 (들 수도, 넘을 수도)</span>
+            <span><span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: '#E5484D' }} />초과 — 최소치도 예산 초과</span>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function NearbyRecommendations({ tourPlaces, coursePlaces, region }) {
+  const [open, setOpen] = useState(false)
+  const used = new Set((coursePlaces || []).map((p) => p.name))
+  const pool = (tourPlaces || []).filter((p) => p && p.name && !used.has(p.name))
+  if (pool.length < 3) return null
+
+  const pick = (kind, n) => pool.filter((p) => p.kind === kind).slice(0, n)
+  const groups = [
+    { label: '추천 맛집', items: pick('food', 4) },
+    { label: '추천 숙소', items: pick('stay', 3) },
+    { label: '추천 관광', items: pick('sight', 4) },
+  ].filter((g) => g.items.length)
+  if (!groups.length) return null
+
+  const kindTone = (kind) =>
+    kind === 'stay' ? 'bg-teal-tint text-teal-deep' : kind === 'food' ? 'bg-coral-tint text-coral-deep' : 'bg-amber/15 text-amber-text'
+
+  return (
+    <section className="mt-5 border-t border-line-hair pt-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between py-2.5 text-[12.5px] font-bold text-ink-2"
+      >
+        <span>이 지역 다른 맛집·숙소 더보기</span>
+        <span className="flex items-center gap-1 text-ink-3">
+          {open ? '접기' : '더보기'}
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
             <path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
       </button>
       {open && (
-        <div className="px-4 pb-4">
-          <p className="text-[14px] font-bold leading-relaxed text-ink">{plan.summary}</p>
-          <div className="mt-4 grid gap-2">
-            {plan.budgetTable?.map((item) => (
-              <div key={item.label} className="flex items-center justify-between rounded-[10px] bg-white px-3 py-2">
-                <span className="text-[13px] font-bold text-ink-2">{item.label}</span>
-                <span className="text-[13px] font-extrabold text-ink">{formatKRW(item.amount)}원</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid gap-2">
-            {plan.strategy?.map((text) => (
-              <p key={text} className="rounded-[10px] bg-white px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-ink-2">
-                {text}
+        <div className="mt-1 grid gap-3">
+          {groups.map((g) => (
+            <div key={g.label}>
+              <p className="mb-2 text-[11.5px] font-extrabold text-ink-3">
+                {g.label} <span className="font-semibold text-ink-muted">{g.items.length}</span>
               </p>
-            ))}
-          </div>
+              <div className="grid gap-2">
+                {g.items.map((place) => (
+                  <a
+                    key={place.name}
+                    href={kakaoMapUrl(place, region)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 rounded-[12px] border border-dashed border-[#DDE4E4] bg-[#F7F9F9] px-3 py-2.5"
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sq text-[12px] font-extrabold ${kindTone(place.kind)}`}>{place.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-bold">{place.name}</p>
+                      <p className="truncate text-[11px] font-semibold text-ink-3">{place.kakaoAddress || place.tag}</p>
+                    </div>
+                    <span className="shrink-0 text-[11.5px] font-bold text-ink-2">{formatPlaceCost(place)}</span>
+                    <span className="shrink-0 rounded-full bg-[#EEF3F3] px-2 py-0.5 text-[10px] font-extrabold text-[#7B8A8F]">주변 추천</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+          <p className="text-center text-[10.5px] font-semibold text-ink-3">담아서 예산에 반영하기는 다음 업데이트에서 제공돼요</p>
         </div>
       )}
     </section>
@@ -1000,7 +1153,7 @@ function PlaceRow({ place, index, region }) {
         {subDetail && <p className="truncate text-[11.5px] font-semibold text-ink-muted">{subDetail}</p>}
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[13px] font-bold text-ink-2">{place.cost}</p>
+        <p className="text-[13px] font-bold text-ink-2">{formatPlaceCost(place)}</p>
         <p className="mt-1 text-[11px] font-extrabold text-teal-deep">지도</p>
       </div>
     </a>

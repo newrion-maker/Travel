@@ -146,7 +146,7 @@ function slotsFor({ axis, period, arrivalTime, isDayTrip }) {
     slots.push({ day: 2, time: '카페', type: 'cafe', keyword: '마무리 카페' })
   }
 
-  if (period === '2박3일 이상') {
+  if (period === '2박3일') {
     slots.push({ day: 3, time: '오전', type: 'sight', keyword: '마지막 관광지' })
   }
 
@@ -381,16 +381,24 @@ export function generateCourses(input, personality, tourPlaces = []) {
       isDayTrip,
     })
     const places = days.flatMap((day) => day.places)
+    const ratios = ratioForPeriod(axis, isDayTrip)
     return {
       key: axis,
       label: LABELS[axis], // "미식 우선형" 등
       accent: LABEL_ACCENT[axis], // teal | coral | amber
       title: `${city} ${AXIS_WORD[axis]} 코스`,
       budget: band,
-      ratios: ratioForPeriod(axis, isDayTrip),
+      ratios,
       transit: transitText(axis, transit),
       source: hasApiPlaces ? 'tourApi' : 'sample',
       budgetTier: tier,
+      // 예산 미터용: 순예산과 성향비율로 계산한 카테고리별 목표(배분 A).
+      budgetNet: net,
+      budgetTargets: {
+        stay: Math.round((net * ratios.stay) / 100),
+        food: Math.round((net * ratios.food) / 100),
+        sight: Math.round((net * ratios.sight) / 100),
+      },
       aiPlan: buildAiPlan({ city, period, arrivalTime, axis, tier, net, isDayTrip }),
       days,
       places,

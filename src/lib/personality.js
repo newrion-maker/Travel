@@ -1,6 +1,6 @@
 // 성향 점수 로직 — 기획서 §3.2 "점수 계산 로직" 을 그대로 구현한 SSOT.
 //
-// 입력: answers = { Q1: 'A'|'B', ... }, period = '당일치기'|'1박2일'|'2박3일 이상'
+// 입력: answers = { Q1: 'A'|'B', ... }, period = '당일치기'|'1박2일'|'2박3일'
 // 출력: { scores:{L,F,A}, ratios:{stay,food,sight}, top, label, isDayTrip }
 
 import { QUESTIONS } from '../data/questions.js'
