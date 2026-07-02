@@ -426,7 +426,7 @@ function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHo
             </div>
             <div className="mt-3">
               {currentDay.places.map((place, idx) => (
-                <PlaceRow key={`${place.name}-${idx}`} place={place} index={idx + 1} />
+                <PlaceRow key={`${place.name}-${idx}`} place={place} index={idx + 1} region={input.region} />
               ))}
             </div>
           </div>
@@ -647,7 +647,12 @@ function MapPreview({ places, source, className }) {
   )
 }
 
-function PlaceRow({ place, index }) {
+function kakaoMapUrl(place, region) {
+  const query = [region, place.name].filter(Boolean).join(' ')
+  return `https://map.kakao.com/link/search/${encodeURIComponent(query)}`
+}
+
+function PlaceRow({ place, index, region }) {
   const kindTone =
     place.kind === 'stay'
       ? 'bg-teal-tint text-teal-deep'
@@ -655,15 +660,20 @@ function PlaceRow({ place, index }) {
         ? 'bg-coral-tint text-coral-deep'
         : 'bg-amber/15 text-amber-text'
   return (
-    <div className="flex items-center gap-3 border-b border-line-hair2 py-3 last:border-0">
+    <a
+      href={kakaoMapUrl(place, region)}
+      target="_blank"
+      rel="noreferrer"
+      className="flex items-center gap-3 border-b border-line-hair2 py-3 transition hover:bg-screen/80 last:border-0"
+    >
       <span className="w-5 text-center text-sm font-extrabold text-ink-muted">{index}</span>
       <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-sq text-sm font-extrabold ${kindTone}`}>{place.icon}</span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15.5px] font-extrabold">{place.name}</p>
         <p className="truncate text-[12.5px] font-semibold text-ink-3">{place.tag}</p>
       </div>
-      <span className="text-[13px] font-bold text-ink-2">{place.cost}</span>
-    </div>
+      <span className="shrink-0 text-[13px] font-bold text-ink-2">{place.cost}</span>
+    </a>
   )
 }
 
