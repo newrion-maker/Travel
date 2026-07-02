@@ -35,12 +35,64 @@ const personalityImages = {
   A: personalitySight,
 }
 
+function parsePositiveNumber(value, fallback) {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? number : fallback
+}
+
+function readSharedState() {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('view') !== 'courses') return null
+
+  const nextInput = {
+    ...initialInput,
+    region: params.get('r') || initialInput.region,
+    period: params.get('p') || initialInput.period,
+    party: parsePositiveNumber(params.get('party'), initialInput.party),
+    arrivalTime: params.get('arr') || initialInput.arrivalTime,
+    budget: parsePositiveNumber(params.get('b'), initialInput.budget),
+    transit: params.get('t') || initialInput.transit,
+    fareIncluded: params.get('fi') !== '0',
+  }
+  const encodedAnswers = params.get('ans') || ''
+  const nextAnswers = {}
+  QUESTIONS.forEach((question, index) => {
+    const answer = encodedAnswers[index]
+    if (answer) nextAnswers[question.id] = answer
+  })
+
+  return {
+    input: nextInput,
+    answers: nextAnswers,
+    activeCourse: Math.max(0, Number(params.get('c')) || 0),
+    screen: 'courses',
+  }
+}
+
+function buildShareUrl({ input, answers, active }) {
+  const url = new URL(window.location.href)
+  const params = new URLSearchParams()
+  params.set('view', 'courses')
+  params.set('r', input.region)
+  params.set('p', input.period)
+  params.set('party', String(input.party))
+  params.set('arr', input.arrivalTime)
+  params.set('b', String(input.budget))
+  params.set('t', input.transit)
+  params.set('fi', input.fareIncluded ? '1' : '0')
+  params.set('ans', QUESTIONS.map((question) => answers[question.id] || '').join(''))
+  params.set('c', String(active))
+  url.search = params.toString()
+  return url.toString()
+}
+
 export default function App() {
-  const [screen, setScreen] = useState('splash')
-  const [input, setInput] = useState(initialInput)
-  const [answers, setAnswers] = useState({})
+  const [sharedState] = useState(readSharedState)
+  const [screen, setScreen] = useState(sharedState?.screen || 'splash')
+  const [input, setInput] = useState(sharedState?.input || initialInput)
+  const [answers, setAnswers] = useState(sharedState?.answers || {})
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [activeCourse, setActiveCourse] = useState(0)
+  const [activeCourse, setActiveCourse] = useState(sharedState?.activeCourse || 0)
   const [tourPlaces, setTourPlaces] = useState([])
   const [aiPlans, setAiPlans] = useState({})
 
@@ -156,6 +208,7 @@ export default function App() {
             onActive={setActiveCourse}
             onHome={goHome}
             onBack={() => setScreen('personality')}
+            shareUrl={buildShareUrl({ input, answers, active: activeCourse })}
           />
         )}
       </PhoneShell>
@@ -360,9 +413,11 @@ function LoadingScreen() {
   )
 }
 
-function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHome }) {
+function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHome, shareUrl }) {
   const [activeDay, setActiveDay] = useState(0)
-  const baseCourse = courses[active]
+  const [shareStatus, setShareStatus] = useState('')
+  const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
+  const baseCourse = courses[activeIndex]
   const course = aiPlans?.[baseCourse.key] ? { ...baseCourse, aiPlan: aiPlans[baseCourse.key] } : baseCourse
   const tone = accentClass[course.accent]
   const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
@@ -377,9 +432,10 @@ function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHo
               key={item.key}
               onClick={() => {
                 setActiveDay(0)
+                setShareStatus('')
                 onActive(idx)
               }}
-              className={`h-10 rounded-sq-lg text-[13px] font-extrabold ${active === idx ? 'bg-white text-ink shadow-seg' : 'text-[#7B8A8F]'}`}
+              className={`h-10 rounded-sq-lg text-[13px] font-extrabold ${activeIndex === idx ? 'bg-white text-ink shadow-seg' : 'text-[#7B8A8F]'}`}
             >
               {idx === 0 ? '맞춤형' : item.key === 'L' ? '호캉스' : item.key === 'F' ? '미식형' : '알뜰형'}
             </button>
@@ -436,7 +492,16 @@ function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHo
         </article>
       </div>
       <BottomBar>
-        <PrimaryButton onClick={() => navigator.clipboard?.writeText(`${course.title} - ${course.budget}`)}>코스 공유하기</PrimaryButton>
+        {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
+        <PrimaryButton
+          onClick={() => {
+            navigator.clipboard?.writeText(shareUrl)
+            setShareStatus('공유 링크를 복사했어요')
+            window.setTimeout(() => setShareStatus(''), 1800)
+          }}
+        >
+          코스 공유하기
+        </PrimaryButton>
       </BottomBar>
     </div>
   )
