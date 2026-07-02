@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { generateAiPlans } from './aiPlan.js'
+import { diagnoseKakaoLocal } from './kakaoLocal.js'
 import { fetchTourPlaces } from './tourApi.js'
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url))
@@ -77,6 +78,13 @@ function readJsonBody(req) {
 async function handleApi(req, res, url) {
   if (url.pathname === '/api/health') {
     sendJson(res, 200, { ok: true })
+    return
+  }
+
+  if (url.pathname === '/api/kakao-health') {
+    const query = url.searchParams.get('query') || '강릉'
+    const result = await diagnoseKakaoLocal(query)
+    sendJson(res, 200, result)
     return
   }
 
