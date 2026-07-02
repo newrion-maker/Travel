@@ -359,6 +359,7 @@ function CoursesScreen({ input, courses, active, onActive, onBack, onHome }) {
             숙박 {course.ratios.stay}% · 식비 {course.ratios.food}% · 관광 {course.ratios.sight}%
           </p>
           <RatioBar ratios={course.ratios} className="mt-5" />
+          <AiPlanSummary plan={course.aiPlan} />
           {dayPlans.length > 1 && (
             <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
               {dayPlans.map((day, idx) => (
@@ -375,6 +376,7 @@ function CoursesScreen({ input, courses, active, onActive, onBack, onHome }) {
               ))}
             </div>
           )}
+          <SlotPreview slots={course.aiPlan?.slots} className="mt-5" />
           <MapPreview places={currentDay.places} source={course.source} className="mt-6" />
           <div className="mt-6 border-t border-line-hair pt-5">
             <div className="flex items-end justify-between gap-3">
@@ -497,6 +499,59 @@ function TravelBadge({ className }) {
         <span className="absolute bottom-3 left-0 right-0 text-center text-[11px] font-extrabold">SUMMER</span>
       </div>
     </div>
+  )
+}
+
+function AiPlanSummary({ plan }) {
+  if (!plan) return null
+
+  return (
+    <section className="mt-5 rounded-[14px] bg-screen px-4 py-4 text-left">
+      <p className="text-[12px] font-extrabold text-teal-deep">AI 예산 진단</p>
+      <p className="mt-2 text-[14px] font-bold leading-relaxed text-ink">{plan.summary}</p>
+      <div className="mt-4 grid gap-2">
+        {plan.budgetTable?.map((item) => (
+          <div key={item.label} className="flex items-center justify-between rounded-[10px] bg-white px-3 py-2">
+            <span className="text-[13px] font-bold text-ink-2">{item.label}</span>
+            <span className="text-[13px] font-extrabold text-ink">{formatKRW(item.amount)}원</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-2">
+        {plan.strategy?.map((text) => (
+          <p key={text} className="rounded-[10px] bg-white px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-ink-2">
+            {text}
+          </p>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SlotPreview({ slots, className = '' }) {
+  if (!slots?.length) return null
+
+  return (
+    <section className={className}>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-[12.5px] font-extrabold text-ink-3">AI 추천 흐름</p>
+        <span className="text-[11.5px] font-bold text-teal-deep">장소 검증 전 슬롯</span>
+      </div>
+      <div className="grid gap-2">
+        {slots.slice(0, 6).map((slot, idx) => (
+          <div key={`${slot.day}-${slot.time}-${idx}`} className="flex items-center gap-3 rounded-[12px] border border-line bg-white px-3 py-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sq bg-teal-tint text-[12px] font-extrabold text-teal-deep">
+              {slot.day}D
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-extrabold text-ink">{slot.time}</p>
+              <p className="truncate text-[12.5px] font-semibold text-ink-3">{slot.keyword}</p>
+            </div>
+            <span className="rounded-full bg-screen px-2 py-1 text-[11px] font-bold text-ink-2">{slot.type}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 

@@ -93,6 +93,75 @@ function budgetTier({ net, party, period, isDayTrip }) {
   return 'mid'
 }
 
+function roundToThousand(value) {
+  return Math.max(0, Math.round(value / 1000) * 1000)
+}
+
+function budgetTableFor({ net, axis, tier, isDayTrip }) {
+  const ratios = ratioForPeriod(axis, isDayTrip)
+  const stay = roundToThousand((net * ratios.stay) / 100)
+  const food = roundToThousand((net * ratios.food) / 100)
+  const sight = roundToThousand((net * ratios.sight) / 100)
+  const cafe = roundToThousand(food * (tier === 'low' ? 0.18 : 0.22))
+  const meal = Math.max(0, food - cafe)
+  const buffer = roundToThousand(net * (tier === 'low' ? 0.05 : 0.08))
+
+  return [
+    ...(!isDayTrip ? [{ label: '숙박', amount: stay }] : []),
+    { label: '식사', amount: meal },
+    { label: '카페', amount: cafe },
+    { label: '관광/간식', amount: sight },
+    { label: '여유비', amount: buffer },
+  ]
+}
+
+function aiSummaryFor({ city, period, tier, axis, net }) {
+  const amount = Math.round(net / 10000)
+  const pace = tier === 'low' ? '알뜰하게' : tier === 'high' ? '여유롭게' : '무리 없이'
+  const focus = axis === 'F' ? '식사와 카페 선택에 힘을 주고' : axis === 'L' ? '숙소 컨디션을 우선으로 보고' : '관광 동선을 넉넉하게 잡고'
+  return `${city} ${period} 기준 ${amount}만원대 예산이면 ${pace} 다녀올 수 있어요. ${focus}, 실제 장소는 예산대에 맞춰 검증된 후보 위주로 골랐습니다.`
+}
+
+function strategyFor({ axis, tier, isDayTrip }) {
+  const stayText = tier === 'low' ? '숙소는 게스트하우스나 10만원 이하 호텔을 우선 추천해요.' : tier === 'high' ? '숙소는 리조트나 컨디션 좋은 호텔까지 선택 폭을 넓혀도 괜찮아요.' : '숙소는 위치 좋은 중간 가격대 호텔을 우선으로 보는 게 좋아요.'
+  const foodText = axis === 'F' ? '식사는 지역 대표 메뉴를 점심/저녁에 나눠 넣고, 카페 예산도 따로 잡는 구성이 좋아요.' : '식사는 부담 없는 로컬 메뉴 중심으로 잡고, 남는 예산을 관광이나 숙소에 배분해요.'
+  const paceText = isDayTrip ? '당일치기는 이동 시간을 줄이고 핵심 장소만 짧게 묶는 편이 좋아요.' : '1박 이상은 첫날 도착 시간에 맞춰 가볍게 시작하고, 다음 날 핵심 코스를 넣는 편이 좋아요.'
+  return [stayText, foodText, paceText]
+}
+
+function slotsFor({ axis, period, arrivalTime, isDayTrip }) {
+  const firstMeal = arrivalTime === '저녁' ? '저녁' : '점심'
+  const foodKeyword = axis === 'F' ? '지역 대표 맛집' : '부담 없는 로컬 식사'
+  const cafeKeyword = axis === 'L' ? '숙소 근처 카페' : '동선 좋은 카페'
+  const sightKeyword = axis === 'A' ? '핵심 관광지' : '가벼운 산책 명소'
+  const slots = [
+    { day: 1, time: firstMeal, type: 'food', keyword: foodKeyword },
+    { day: 1, time: '오후', type: 'cafe', keyword: cafeKeyword },
+    { day: 1, time: arrivalTime === '저녁' ? '밤' : '저녁', type: 'sight', keyword: sightKeyword },
+  ]
+
+  if (!isDayTrip) {
+    slots.push({ day: 1, time: '숙박', type: 'stay', keyword: '예산 맞춤 숙소' })
+    slots.push({ day: 2, time: '점심', type: 'food', keyword: axis === 'F' ? '두 번째 맛집' : '가성비 점심' })
+    slots.push({ day: 2, time: '카페', type: 'cafe', keyword: '마무리 카페' })
+  }
+
+  if (period === '2박3일 이상') {
+    slots.push({ day: 3, time: '오전', type: 'sight', keyword: '마지막 관광지' })
+  }
+
+  return slots
+}
+
+function buildAiPlan({ city, period, arrivalTime, axis, tier, net, isDayTrip }) {
+  return {
+    summary: aiSummaryFor({ city, period, tier, axis, net }),
+    budgetTable: budgetTableFor({ net, axis, tier, isDayTrip }),
+    strategy: strategyFor({ axis, tier, isDayTrip }),
+    slots: slotsFor({ axis, period, arrivalTime, isDayTrip }),
+  }
+}
+
 function sortPlacesForBudget(places, tier, kind) {
   const target = {
     low: { stay: 65000, food: 9000, sight: 0 },
@@ -321,6 +390,7 @@ export function generateCourses(input, personality, tourPlaces = []) {
       transit: transitText(axis, transit),
       source: hasApiPlaces ? 'tourApi' : 'sample',
       budgetTier: tier,
+      aiPlan: buildAiPlan({ city, period, arrivalTime, axis, tier, net, isDayTrip }),
       days,
       places,
     }
