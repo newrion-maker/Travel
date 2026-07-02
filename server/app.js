@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { generateAiPlans } from './aiPlan.js'
 import { fetchTourPlaces } from './tourApi.js'
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url))
@@ -52,6 +53,27 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body))
 }
 
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = ''
+    req.on('data', (chunk) => {
+      body += chunk
+      if (body.length > 1024 * 1024) {
+        reject(new Error('Request body too large'))
+        req.destroy()
+      }
+    })
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {})
+      } catch (error) {
+        reject(error)
+      }
+    })
+    req.on('error', reject)
+  })
+}
+
 async function handleApi(req, res, url) {
   if (url.pathname === '/api/health') {
     sendJson(res, 200, { ok: true })
@@ -65,6 +87,17 @@ async function handleApi(req, res, url) {
       sendJson(res, 200, { places, source: places.length ? 'tourApi' : 'empty' })
     } catch {
       sendJson(res, 200, { places: [], source: 'fallback' })
+    }
+    return
+  }
+
+  if (url.pathname === '/api/ai-plan' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req)
+      const plans = await generateAiPlans(body)
+      sendJson(res, 200, { plans, source: plans.length ? 'openai' : 'fallback' })
+    } catch {
+      sendJson(res, 200, { plans: [], source: 'fallback' })
     }
     return
   }

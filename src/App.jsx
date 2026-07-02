@@ -42,6 +42,7 @@ export default function App() {
   const [questionIndex, setQuestionIndex] = useState(0)
   const [activeCourse, setActiveCourse] = useState(0)
   const [tourPlaces, setTourPlaces] = useState([])
+  const [aiPlans, setAiPlans] = useState({})
 
   const personality = useMemo(() => computePersonality(answers, input.period), [answers, input.period])
   const courses = useMemo(() => generateCourses(input, personality, tourPlaces), [input, personality, tourPlaces])
@@ -64,6 +65,44 @@ export default function App() {
       alive = false
     }
   }, [input.region])
+
+  useEffect(() => {
+    if (!['loading', 'courses'].includes(screen)) return
+
+    let alive = true
+    const payloadCourses = courses.map((course) => ({
+      key: course.key,
+      label: course.label,
+      title: course.title,
+      budget: course.budget,
+      ratios: course.ratios,
+      budgetTier: course.budgetTier,
+      places: course.places,
+      days: course.days,
+    }))
+
+    fetch('/api/ai-plan', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ input, personality, courses: payloadCourses }),
+    })
+      .then((response) => (response.ok ? response.json() : { plans: [] }))
+      .then((data) => {
+        if (!alive) return
+        const next = {}
+        for (const plan of data.plans || []) {
+          if (plan.key) next[plan.key] = plan
+        }
+        setAiPlans(next)
+      })
+      .catch(() => {
+        if (alive) setAiPlans({})
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [screen, input, personality, courses])
 
   function goHome() {
     setAnswers({})
@@ -112,6 +151,7 @@ export default function App() {
           <CoursesScreen
             input={input}
             courses={courses}
+            aiPlans={aiPlans}
             active={activeCourse}
             onActive={setActiveCourse}
             onHome={goHome}
@@ -320,9 +360,10 @@ function LoadingScreen() {
   )
 }
 
-function CoursesScreen({ input, courses, active, onActive, onBack, onHome }) {
+function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHome }) {
   const [activeDay, setActiveDay] = useState(0)
-  const course = courses[active]
+  const baseCourse = courses[active]
+  const course = aiPlans?.[baseCourse.key] ? { ...baseCourse, aiPlan: aiPlans[baseCourse.key] } : baseCourse
   const tone = accentClass[course.accent]
   const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
   const currentDay = dayPlans[Math.min(activeDay, dayPlans.length - 1)]
