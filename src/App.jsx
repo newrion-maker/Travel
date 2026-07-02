@@ -86,6 +86,33 @@ function buildShareUrl({ input, answers, active }) {
   return url.toString()
 }
 
+function compactPlaceForAi(place) {
+  return {
+    name: place.name,
+    kind: place.kind,
+    tag: place.kakaoAddress || place.tag,
+    cost: place.cost,
+  }
+}
+
+function compactCourseForAi(course) {
+  return {
+    key: course.key,
+    label: course.label,
+    title: course.title,
+    budget: course.budget,
+    ratios: course.ratios,
+    budgetTier: course.budgetTier,
+    places: course.places.slice(0, 6).map(compactPlaceForAi),
+    days: course.days.slice(0, 3).map((day) => ({
+      day: day.day,
+      title: day.title,
+      summary: day.summary,
+      places: day.places.slice(0, 4).map(compactPlaceForAi),
+    })),
+  }
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -117,6 +144,7 @@ export default function App() {
   const [activeCourse, setActiveCourse] = useState(sharedState?.activeCourse || 0)
   const [tourPlaces, setTourPlaces] = useState([])
   const [aiPlans, setAiPlans] = useState({})
+  const [aiPlanSource, setAiPlanSource] = useState('fallback')
 
   const personality = useMemo(() => computePersonality(answers, input.period), [answers, input.period])
   const courses = useMemo(() => generateCourses(input, personality, tourPlaces), [input, personality, tourPlaces])
@@ -144,16 +172,8 @@ export default function App() {
     if (!['loading', 'courses'].includes(screen)) return
 
     let alive = true
-    const payloadCourses = courses.map((course) => ({
-      key: course.key,
-      label: course.label,
-      title: course.title,
-      budget: course.budget,
-      ratios: course.ratios,
-      budgetTier: course.budgetTier,
-      places: course.places,
-      days: course.days,
-    }))
+    setAiPlanSource('loading')
+    const payloadCourses = courses.map(compactCourseForAi)
 
     fetch('/api/ai-plan', {
       method: 'POST',
@@ -168,9 +188,13 @@ export default function App() {
           if (plan.key) next[plan.key] = plan
         }
         setAiPlans(next)
+        setAiPlanSource(data.source === 'openai' && Object.keys(next).length ? 'openai' : 'fallback')
       })
       .catch(() => {
-        if (alive) setAiPlans({})
+        if (alive) {
+          setAiPlans({})
+          setAiPlanSource('fallback')
+        }
       })
 
     return () => {
@@ -226,6 +250,7 @@ export default function App() {
             input={input}
             courses={courses}
             aiPlans={aiPlans}
+            aiPlanSource={aiPlanSource}
             active={activeCourse}
             onActive={setActiveCourse}
             onHome={goHome}
@@ -435,12 +460,14 @@ function LoadingScreen() {
   )
 }
 
-function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHome, shareUrl }) {
+function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
   const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
   const baseCourse = courses[activeIndex]
-  const course = aiPlans?.[baseCourse.key] ? { ...baseCourse, aiPlan: aiPlans[baseCourse.key] } : baseCourse
+  const hasAiOverride = Boolean(aiPlans?.[baseCourse.key])
+  const course = hasAiOverride ? { ...baseCourse, aiPlan: aiPlans[baseCourse.key] } : baseCourse
+  const planSource = hasAiOverride ? aiPlanSource : aiPlanSource === 'loading' ? 'loading' : 'fallback'
   const tone = accentClass[course.accent]
   const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
   const currentDay = dayPlans[Math.min(activeDay, dayPlans.length - 1)]
@@ -478,7 +505,7 @@ function CoursesScreen({ input, courses, aiPlans, active, onActive, onBack, onHo
             숙박 {course.ratios.stay}% · 식비 {course.ratios.food}% · 관광 {course.ratios.sight}%
           </p>
           <RatioBar ratios={course.ratios} className="mt-5" />
-          <AiPlanSummary plan={course.aiPlan} />
+          <AiPlanSummary plan={course.aiPlan} source={planSource} />
           {dayPlans.length > 1 && (
             <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
               {dayPlans.map((day, idx) => (
@@ -630,12 +657,17 @@ function TravelBadge({ className }) {
   )
 }
 
-function AiPlanSummary({ plan }) {
+function AiPlanSummary({ plan, source }) {
   if (!plan) return null
+  const sourceLabel = source === 'openai' ? '실시간 AI 반영' : source === 'loading' ? 'AI 확인 중' : '기본 추천'
+  const sourceTone = source === 'openai' ? 'bg-teal text-white' : source === 'loading' ? 'bg-amber/20 text-amber-text' : 'bg-white text-ink-3'
 
   return (
     <section className="mt-5 rounded-[14px] bg-screen px-4 py-4 text-left">
-      <p className="text-[12px] font-extrabold text-teal-deep">AI 예산 진단</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[12px] font-extrabold text-teal-deep">AI 예산 진단</p>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold ${sourceTone}`}>{sourceLabel}</span>
+      </div>
       <p className="mt-2 text-[14px] font-bold leading-relaxed text-ink">{plan.summary}</p>
       <div className="mt-4 grid gap-2">
         {plan.budgetTable?.map((item) => (
