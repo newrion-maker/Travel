@@ -1,4 +1,8 @@
 const KAKAO_LOCAL_BASE = 'https://dapi.kakao.com/v2/local/search/keyword.json'
+const KAKAO_CACHE_TTL_MS = 1000 * 60 * 30
+const KAKAO_CONCURRENCY = 5
+const KAKAO_TIMEOUT_MS = 5000
+const kakaoPlaceCache = new Map()
 
 function kakaoKey() {
   return process.env.KAKAO_REST_API_KEY || ''
@@ -20,6 +24,24 @@ function kakaoHeaders() {
   }
 }
 
+function cacheKey(region, place) {
+  return [region, place.name, place.mapx || '', place.mapy || ''].join('|')
+}
+
+function readCache(key) {
+  const cached = kakaoPlaceCache.get(key)
+  if (!cached) return undefined
+  if (Date.now() - cached.savedAt > KAKAO_CACHE_TTL_MS) {
+    kakaoPlaceCache.delete(key)
+    return undefined
+  }
+  return cached.value
+}
+
+function writeCache(key, value) {
+  kakaoPlaceCache.set(key, { savedAt: Date.now(), value })
+}
+
 async function lookupPlace(region, place) {
   const params = new URLSearchParams({
     query: [region, place.name].filter(Boolean).join(' '),
@@ -32,14 +54,49 @@ async function lookupPlace(region, place) {
     params.set('radius', '20000')
   }
 
-  const response = await fetch(`${KAKAO_LOCAL_BASE}?${params.toString()}`, {
-    headers: kakaoHeaders(),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), KAKAO_TIMEOUT_MS)
+
+  let response
+  try {
+    response = await fetch(`${KAKAO_LOCAL_BASE}?${params.toString()}`, {
+      headers: kakaoHeaders(),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) return null
 
   const data = await response.json()
   return data?.documents?.[0] || null
+}
+
+async function lookupPlaceCached(region, place) {
+  const key = cacheKey(region, place)
+  const cached = readCache(key)
+  if (cached !== undefined) return cached
+
+  const kakao = await lookupPlace(region, place)
+  writeCache(key, kakao)
+  return kakao
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length)
+  let index = 0
+
+  async function worker() {
+    while (index < items.length) {
+      const current = index
+      index += 1
+      results[current] = await mapper(items[current], current)
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
 }
 
 export async function enrichPlacesWithKakao(region, places) {
@@ -52,11 +109,10 @@ export async function enrichPlacesWithKakao(region, places) {
     }))
   }
 
-  const enriched = []
-  for (const place of places) {
+  return mapWithConcurrency(places, KAKAO_CONCURRENCY, async (place) => {
     try {
-      const kakao = await lookupPlace(region, place)
-      enriched.push({
+      const kakao = await lookupPlaceCached(region, place)
+      return {
         ...place,
         mapUrl: kakao?.place_url || fallbackMapUrl(region, place.name),
         kakaoPlaceId: kakao?.id || '',
@@ -64,16 +120,14 @@ export async function enrichPlacesWithKakao(region, places) {
         kakaoAddress: kakao?.road_address_name || kakao?.address_name || '',
         kakaoPhone: kakao?.phone || '',
         kakaoCategory: kakao?.category_name || '',
-      })
+      }
     } catch {
-      enriched.push({
+      return {
         ...place,
         mapUrl: fallbackMapUrl(region, place.name),
-      })
+      }
     }
-  }
-
-  return enriched
+  })
 }
 
 export async function diagnoseKakaoLocal(query = '강릉') {
