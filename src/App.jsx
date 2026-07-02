@@ -648,6 +648,7 @@ function MapPreview({ places, source, className }) {
 }
 
 function kakaoMapUrl(place, region) {
+  if (place.mapUrl) return place.mapUrl
   const query = [region, place.name].filter(Boolean).join(' ')
   return `https://map.kakao.com/link/search/${encodeURIComponent(query)}`
 }

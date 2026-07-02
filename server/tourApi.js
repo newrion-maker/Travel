@@ -1,4 +1,5 @@
 const TOUR_API_BASE = 'https://apis.data.go.kr/B551011/KorService2'
+import { enrichPlacesWithKakao } from './kakaoLocal.js'
 
 const REGION_CODES = {
   '강원 강릉시': { areaCode: '32', sigunguCode: '1' },
@@ -101,5 +102,6 @@ export async function fetchTourPlaces(region) {
   const data = await response.json()
   const rawItems = data?.response?.body?.items?.item
   const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : []
-  return items.map(normalizeTourPlace).filter((place) => place.name)
+  const places = items.map(normalizeTourPlace).filter((place) => place.name)
+  return enrichPlacesWithKakao(region, places)
 }
