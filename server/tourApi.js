@@ -1,12 +1,23 @@
-const TOUR_API_BASE = 'https://apis.data.go.kr/B551011/KorService2'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { enrichPlacesWithKakao } from './kakaoLocal.js'
 
-const REGION_CODES = {
-  '강원 강릉시': { areaCode: '32', sigunguCode: '1' },
-  '부산 해운대구': { areaCode: '6', sigunguCode: '16' },
-  '전북 전주시': { areaCode: '37', sigunguCode: '12' },
-  '제주 제주시': { areaCode: '39', sigunguCode: '4' },
+const TOUR_API_BASE = 'https://apis.data.go.kr/B551011/KorService2'
+
+// 전국 시/도·시/군/구 코드 트리 (scripts/generate-regions.mjs 로 생성).
+const regionData = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'data', 'regions.json'), 'utf8'),
+)
+
+// "시도 시군구" 문자열 → { areaCode, sigunguCode } 매핑.
+const REGION_CODES = {}
+for (const sido of regionData.sido) {
+  for (const sg of sido.sigungu) {
+    REGION_CODES[`${sido.name} ${sg.name}`] = { areaCode: sido.code, sigunguCode: sg.code }
+  }
 }
+const DEFAULT_REGION_CODE = REGION_CODES['강원 강릉시'] || { areaCode: '32', sigunguCode: '1' }
 
 const CONTENT_KIND = {
   12: 'sight',
@@ -72,7 +83,7 @@ async function fetchWithRetry(url, { retries = 2, backoffMs = 500 } = {}) {
 }
 
 function regionParams(region) {
-  return REGION_CODES[region] ?? REGION_CODES['강원 강릉시']
+  return REGION_CODES[region] ?? DEFAULT_REGION_CODE
 }
 
 function estimatePrice(kind, item) {

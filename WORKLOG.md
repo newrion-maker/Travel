@@ -28,5 +28,14 @@
 - **당일치기 호캉스 코스 제거** (`src/lib/courses.js`, `src/App.jsx`): 당일치기는 숙박 축(L=호캉스)을 코스에서 제외해 F/A 2개만 생성. 세그먼트 탭도 코스 개수에 맞춰 동적 컬럼으로.
 - **문서 AI 엔진 표기 정리** (기획서 2부·`design_handoff/README.md`·`src/lib/courses.js` 주석): 런타임 "Claude API" 언급을 실제 구현(**OpenAI gpt-4.1-mini**)에 맞춰 수정. **AI 엔진은 OpenAI 유지(교체 아님).** 단, §11 "Claude Design"은 시안 제작에 쓴 도구 언급이라 사실이므로 유지.
 
+### 6. 실제 지도 · 전국 지역 선택
+- **Kakao Maps JS 실제 지도**(`src/App.jsx`): 결과 화면 placeholder → 실제 카카오 지도(TourAPI 좌표로 번호 마커+fitBounds). `VITE_KAKAO_MAP_KEY`(도메인 등록 공개키), 키/좌표 없으면 placeholder fallback.
+- **전국 지역 선택**: 4개 하드코딩 → 전국 시/도 17 + 시/군/구 234개.
+  - `scripts/generate-regions.mjs`로 TourAPI에서 코드 트리 생성 → `src/data/regions.json` (시/도명 정규화: 경기도→경기 등).
+  - `server/tourApi.js`: 하드코딩 REGION_CODES → regions.json 기반 지역명→코드 매핑.
+  - `src/App.jsx`: 단일 select → **바텀시트 드릴다운 선택기**(시/도→시/군/구 + 전국 검색). region 문자열 형식 유지로 지도·공유 호환.
+  - 검증: 경기 평택/서울 강남/충남 태안 실데이터+지도+AI 확인.
+
 ### 참고
 - 실제 API가 반영된 화면은 `npm run build && npm run serve`(포트 5175)로 확인. vite dev(5174)는 `/api/*`를 프록시하지 않아 항상 샘플 데이터.
+- 서버 코드(`server/*.js`) 수정 시 실행 중인 serve 프로세스는 재시작해야 반영됨(지역 매핑 등).

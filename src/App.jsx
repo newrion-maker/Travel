@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { QUESTIONS } from './data/questions.js'
+import regionData from './data/regions.json'
 import { formatKRW } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
@@ -22,7 +23,6 @@ const initialInput = {
 const periods = ['당일치기', '1박2일', '2박3일 이상']
 const arrivalTimes = ['오전', '오후', '저녁']
 const transits = ['자차', '대중교통']
-const regions = ['강원 강릉시', '부산 해운대구', '전북 전주시', '제주 제주시']
 const accentClass = {
   teal: { text: 'text-teal-deep', bg: 'bg-teal-tint', chip: 'bg-teal-tint text-teal-deep' },
   coral: { text: 'text-coral-deep', bg: 'bg-coral-tint', chip: 'bg-coral-tint text-coral-deep' },
@@ -304,7 +304,111 @@ function Splash({ onStart }) {
   )
 }
 
+function RegionPicker({ open, onClose, onSelect }) {
+  const [sido, setSido] = useState(null)
+  const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    if (open) {
+      setSido(null)
+      setQuery('')
+    }
+  }, [open])
+
+  if (!open) return null
+
+  const q = query.trim()
+  const searchResults = q
+    ? regionData.sido
+        .flatMap((s) =>
+          s.sigungu
+            .filter((sg) => `${s.name} ${sg.name}`.includes(q) || sg.name.includes(q) || s.name.includes(q))
+            .map((sg) => `${s.name} ${sg.name}`),
+        )
+        .slice(0, 50)
+    : []
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[430px]">
+        <div className="animate-fade-slide flex max-h-[82vh] flex-col rounded-t-[24px] bg-white pb-6 shadow-2xl">
+          <div className="flex items-center gap-2 px-4 pt-4">
+            {sido && !q ? (
+              <button type="button" onClick={() => setSido(null)} className="h-9 w-9 rounded-full text-2xl font-bold text-ink-2" aria-label="뒤로">
+                ‹
+              </button>
+            ) : (
+              <span className="h-9 w-9" />
+            )}
+            <h3 className="flex-1 text-center text-base font-extrabold">{sido && !q ? sido.name : '지역 선택'}</h3>
+            <button type="button" onClick={onClose} className="h-9 w-9 rounded-full text-lg font-bold text-ink-3" aria-label="닫기">
+              ✕
+            </button>
+          </div>
+          <div className="px-4 pt-3">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              inputMode="search"
+              placeholder="지역명 검색 (예: 평택)"
+              className="h-11 w-full rounded-field border border-line bg-screen px-4 text-sm font-bold outline-none focus:border-teal"
+            />
+          </div>
+          <div className="mt-3 flex-1 overflow-y-auto px-4">
+            {q ? (
+              searchResults.length ? (
+                <div className="grid gap-1.5 pb-2">
+                  {searchResults.map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => onSelect(label)}
+                      className="flex h-12 items-center rounded-[12px] border border-line bg-white px-4 text-left text-[15px] font-bold hover:bg-screen"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-10 text-center text-sm font-semibold text-ink-3">검색 결과가 없어요</p>
+              )
+            ) : sido ? (
+              <div className="grid grid-cols-2 gap-1.5 pb-2">
+                {sido.sigungu.map((sg) => (
+                  <button
+                    key={sg.code}
+                    type="button"
+                    onClick={() => onSelect(`${sido.name} ${sg.name}`)}
+                    className="flex h-12 items-center justify-center rounded-[12px] border border-line bg-white px-3 text-[15px] font-bold hover:bg-screen"
+                  >
+                    {sg.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-1.5 pb-2">
+                {regionData.sido.map((s) => (
+                  <button
+                    key={s.code}
+                    type="button"
+                    onClick={() => setSido(s)}
+                    className="flex h-12 items-center justify-center rounded-[12px] border border-line bg-white text-[15px] font-extrabold hover:bg-teal-tint"
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
+  const [regionOpen, setRegionOpen] = useState(false)
   return (
     <div className="flex min-h-screen flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
@@ -312,15 +416,22 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
         <h2 className="whitespace-pre-line text-2xl font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
         <p className="mt-3 text-sm font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
         <Field label="지역">
-          <select
-            value={input.region}
-            onChange={(e) => setInput({ ...input, region: e.target.value })}
-            className="h-[54px] w-full rounded-field border-[1.5px] border-teal bg-white px-4 text-base font-bold shadow-field outline-none"
+          <button
+            type="button"
+            onClick={() => setRegionOpen(true)}
+            className="flex h-[54px] w-full items-center justify-between rounded-field border-[1.5px] border-teal bg-white px-4 text-base font-bold shadow-field"
           >
-            {regions.map((region) => (
-              <option key={region}>{region}</option>
-            ))}
-          </select>
+            <span>{input.region}</span>
+            <span className="text-[13px] font-bold text-teal-deep">변경</span>
+          </button>
+          <RegionPicker
+            open={regionOpen}
+            onClose={() => setRegionOpen(false)}
+            onSelect={(region) => {
+              setInput({ ...input, region })
+              setRegionOpen(false)
+            }}
+          />
         </Field>
         <Field label="여행 기간">
           <ChipGroup value={input.period} options={periods} onChange={(period) => setInput({ ...input, period })} />
