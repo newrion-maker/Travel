@@ -3,7 +3,7 @@
 // ⚠️ 실제 제품에서는 이 함수가 아래를 수행한다 (README "교체할 자리"):
 //   1. TourAPI areaBasedList 프리페치 결과(장소 목록)
 //   2. computeNetBudget()의 순예산 + 여행기간 + 인원수 + L/F/A 비율 3세트 + 이동수단 제약
-//   을 Claude API에 구조화 프롬프트로 전달 → JSON 코스 3개 파싱.
+//   을 OpenAI API에 구조화 프롬프트로 전달 → JSON 코스 3개 파싱.
 //
 // 여기서는 API 키 없이 동작하도록 동일한 "출력 스키마"를 mock 데이터로 생성한다.
 // courses[] 스키마는 README State Management 절을 바탕으로 하되, 기간별 표시를 위해 days[]를 추가한다.
@@ -365,8 +365,9 @@ export function generateCourses(input, personality, tourPlaces = []) {
   const isGangneung = /강릉/.test(region || '')
   const hasApiPlaces = Array.isArray(tourPlaces) && tourPlaces.length >= 3
 
-  // 메인 먼저, 나머지 두 축을 서브로 (§3.4)
-  const order = [personality.top, ...['L', 'F', 'A'].filter((a) => a !== personality.top)]
+  // 메인 먼저, 나머지 축을 서브로 (§3.4). 당일치기는 숙박 축(L=호캉스)을 제외한다.
+  const axisPool = isDayTrip ? ['F', 'A'] : ['L', 'F', 'A']
+  const order = [personality.top, ...axisPool.filter((a) => a !== personality.top)]
 
   return order.map((axis) => {
     const fallbackPlaces = isGangneung ? PLACES_GANGNEUNG[axis] : genericPlaces(city, axis)

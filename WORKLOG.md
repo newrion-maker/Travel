@@ -24,7 +24,9 @@
 - **`server/tourApi.js`**: data.go.kr 5xx/네트워크 오류 시 백오프로 **최대 2회 자동 재시도**(`fetchWithRetry`) 추가. 최종 실패 시 서버 로그 기록.
 - **`src/App.jsx`**: 결과 카드에 **데이터 출처 배지** 추가 — 실시간(TourAPI) 반영 시 "실시간 장소 반영", 실패 시 "샘플 데이터" 표시.
 
-### 참고 / 남은 항목
+### 5. 후속 처리 (같은 날)
+- **당일치기 호캉스 코스 제거** (`src/lib/courses.js`, `src/App.jsx`): 당일치기는 숙박 축(L=호캉스)을 코스에서 제외해 F/A 2개만 생성. 세그먼트 탭도 코스 개수에 맞춰 동적 컬럼으로.
+- **문서 AI 엔진 표기 정리** (기획서 2부·`design_handoff/README.md`·`src/lib/courses.js` 주석): 런타임 "Claude API" 언급을 실제 구현(**OpenAI gpt-4.1-mini**)에 맞춰 수정. **AI 엔진은 OpenAI 유지(교체 아님).** 단, §11 "Claude Design"은 시안 제작에 쓴 도구 언급이라 사실이므로 유지.
+
+### 참고
 - 실제 API가 반영된 화면은 `npm run build && npm run serve`(포트 5175)로 확인. vite dev(5174)는 `/api/*`를 프록시하지 않아 항상 샘플 데이터.
-- (미해결) 당일치기인데 "호캉스" 서브 코스가 노출되는 UX 불일치.
-- (미해결) 기획서는 "Claude", 구현은 "OpenAI" — 문서/구현 정합성 정리 필요.

@@ -1,7 +1,7 @@
 # Handoff: 지역·예산 기반 AI 여행 코스 추천 미니앱
 
 ## Overview
-앱인토스(토스 인앱 웹뷰) 미니앱. 사용자가 지역·예산·이동수단을 입력하고 5문항 성향 테스트를 거치면, 소비 성향(숙박/식비/관광지 비중)에 맞춰 Claude API가 여행 코스 3개를 생성해 카드로 보여준다. 이 핸드오프는 **6개 화면의 UI 시안**을 실제 코드로 옮기기 위한 문서다.
+앱인토스(토스 인앱 웹뷰) 미니앱. 사용자가 지역·예산·이동수단을 입력하고 5문항 성향 테스트를 거치면, 소비 성향(숙박/식비/관광지 비중)에 맞춰 OpenAI API가 여행 코스 3개를 생성해 카드로 보여준다. 이 핸드오프는 **6개 화면의 UI 시안**을 실제 코드로 옮기기 위한 문서다.
 
 플로우: **스플래시 → 입력 → 성향 테스트(5문항) → 성향 결과 → 로딩(코스 생성) → 결과**
 
@@ -15,8 +15,8 @@
 **High-fidelity (hifi).** 최종 색상·타이포·간격·인터랙션이 확정된 픽셀 목업이다. 아래 스펙과 디자인 토큰을 그대로 사용해 픽셀에 가깝게 재현하되, 스타일링은 Tailwind로 표현한다.
 
 ## Product Logic (별도 문서 참조)
-예산 계산, 성향 점수 로직, 당일치기 분기, TourAPI/Claude 프롬프트 설계 등 **기능 로직은 기획서 `여행코스추천_미니앱_기획서_v1.0.md` 의 3~4절이 단일 진실 소스(SSOT)** 다. 이 README는 화면/시각/인터랙션만 다룬다. 구현 시 두 문서를 함께 볼 것.
-- §3 화면별 상세 명세 · §4.1 순예산(교통비) · §4.2 이동수단 제약 · §4.3 기간·인원 반영 · §4.4 Claude 프롬프트
+예산 계산, 성향 점수 로직, 당일치기 분기, TourAPI/OpenAI 프롬프트 설계 등 **기능 로직은 기획서 `여행코스추천_미니앱_기획서_v1.0.md` 의 3~4절이 단일 진실 소스(SSOT)** 다. 이 README는 화면/시각/인터랙션만 다룬다. 구현 시 두 문서를 함께 볼 것.
+- §3 화면별 상세 명세 · §4.1 순예산(교통비) · §4.2 이동수단 제약 · §4.3 기간·인원 반영 · §4.4 OpenAI 프롬프트
 
 ---
 
@@ -110,7 +110,7 @@
   - CTA "내 맞춤 코스 보기" teal.
 
 ### 4. 로딩 (코스 생성)
-- **Purpose**: Claude API 응답 대기 인터벌. (처리 순서 §3.3)
+- **Purpose**: OpenAI API 응답 대기 인터벌. (처리 순서 §3.3)
 - **Layout**: 완전 중앙 정렬. 스피너 → 문구 → 진행 체크리스트.
 - **Components**:
   - 스피너: 120 원형, `border: 7px solid #E1EAEA`, `border-top-color: teal`, `spin 0.95s linear infinite`. 안쪽 96px 원형 **일러스트 플레이스홀더**(사선 스트라이프, bob 애니메이션, 모노 "여행 일러스트"). → 실제 여행 테마 일러스트로 교체.
@@ -149,9 +149,9 @@
 - `input`: { regionCode, region, period('당일치기'|'1박2일'|'2박3일 이상'), party:number, budget:number, transit('자차'|'대중교통'), fareIncluded:boolean }
 - `testAnswers`: 문항별 선택(A/B/C) → §3.2 배점으로 L/F/A 합산 → 비율/라벨 산출
 - `personality`: { label, ratios:{stay,food,sight} }
-- `courses`: Claude 응답 파싱 결과(코스 3개). 각 코스 = { label, accent, title, budget, ratios, transit, places:[{no, kind, icon, name, tag, cost}] }
+- `courses`: OpenAI 응답 파싱 결과(코스 3개). 각 코스 = { label, accent, title, budget, ratios, transit, places:[{no, kind, icon, name, tag, cost}] }
 - `activeTab`: 0(메인)/1/2 — 결과 세그먼트
-- `loading`: boolean; 데이터 페칭: TourAPI(프리페치) + Claude(코스 생성). 동일 지역·예산·성향 조합 캐싱 고려(리스크 §9).
+- `loading`: boolean; 데이터 페칭: TourAPI(프리페치) + OpenAI(코스 생성). 동일 지역·예산·성향 조합 캐싱 고려(리스크 §9).
 
 ## Assets
 - **폰트**: Pretendard(CDN, 위 토큰 참조).

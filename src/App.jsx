@@ -475,7 +475,7 @@ function CoursesScreen({ input, courses, aiPlans, aiPlanSource, active, onActive
     <div className="flex min-h-screen flex-col sm:min-h-[860px]">
       <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
       <div className="px-5 pt-3">
-        <div className="grid grid-cols-3 rounded-[14px] bg-[#E9EEEE] p-1">
+        <div className="grid rounded-[14px] bg-[#E9EEEE] p-1" style={{ gridTemplateColumns: `repeat(${courses.length}, minmax(0, 1fr))` }}>
           {courses.map((item, idx) => (
             <button
               key={item.key}
