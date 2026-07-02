@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { QUESTIONS } from './data/questions.js'
 import { formatKRW } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
@@ -749,7 +749,92 @@ function RatioBar({ ratios, className = '' }) {
   )
 }
 
+// Kakao Maps JS SDK를 1회만 로드하는 싱글턴. JS 키는 도메인 등록으로 보호되는 공개키.
+let kakaoMapsPromise = null
+function loadKakaoMaps() {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'))
+  if (window.kakao?.maps) return Promise.resolve(window.kakao)
+  if (kakaoMapsPromise) return kakaoMapsPromise
+
+  const appKey = import.meta.env.VITE_KAKAO_MAP_KEY
+  if (!appKey) return Promise.reject(new Error('no kakao map key'))
+
+  kakaoMapsPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`
+    script.async = true
+    script.onload = () => window.kakao.maps.load(() => resolve(window.kakao))
+    script.onerror = () => {
+      kakaoMapsPromise = null
+      reject(new Error('kakao sdk load failed'))
+    }
+    document.head.appendChild(script)
+  })
+  return kakaoMapsPromise
+}
+
 function MapPreview({ places, source, className }) {
+  const containerRef = useRef(null)
+  const [status, setStatus] = useState('idle') // idle | ready | failed
+  const points = useMemo(
+    () => (places || []).filter((p) => Number(p.mapx) && Number(p.mapy)).slice(0, 5),
+    [places],
+  )
+  const pointsKey = points.map((p) => `${p.mapx},${p.mapy}`).join('|')
+  const useRealMap = Boolean(import.meta.env.VITE_KAKAO_MAP_KEY) && points.length > 0
+
+  useEffect(() => {
+    if (!useRealMap) return undefined
+    let cancelled = false
+    setStatus('idle')
+
+    loadKakaoMaps()
+      .then((kakao) => {
+        if (cancelled || !containerRef.current) return
+        const map = new kakao.maps.Map(containerRef.current, {
+          center: new kakao.maps.LatLng(points[0].mapy, points[0].mapx),
+          level: 6,
+        })
+        const bounds = new kakao.maps.LatLngBounds()
+        points.forEach((place, idx) => {
+          const pos = new kakao.maps.LatLng(place.mapy, place.mapx)
+          bounds.extend(pos)
+          const pin = document.createElement('div')
+          pin.textContent = String(idx + 1)
+          pin.style.cssText =
+            'display:flex;align-items:center;justify-content:center;width:26px;height:26px;' +
+            `border-radius:9999px;background:${idx === 0 ? '#FF7060' : '#12B3A6'};color:#fff;` +
+            'font-weight:800;font-size:12px;border:2px solid #fff;box-shadow:0 2px 6px rgba(16,23,28,.3);transform:translateY(-13px)'
+          new kakao.maps.CustomOverlay({ map, position: pos, content: pin, yAnchor: 1, zIndex: idx === 0 ? 10 : 5 })
+        })
+        if (points.length > 1) map.setBounds(bounds)
+        else map.setLevel(5)
+        if (!cancelled) setStatus('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('failed')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [useRealMap, pointsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (useRealMap && status !== 'failed') {
+    return (
+      <div className={`relative h-[170px] overflow-hidden rounded-[14px] bg-[#E9F1F0] ${className}`}>
+        <div ref={containerRef} className="h-full w-full" />
+        {status !== 'ready' && (
+          <div className="absolute inset-0 flex items-center justify-center text-[12px] font-bold text-ink-3">지도 불러오는 중…</div>
+        )}
+      </div>
+    )
+  }
+
+  return <MapPlaceholder places={places} source={source} className={className} />
+}
+
+function MapPlaceholder({ places, source, className }) {
   return (
     <div className={`relative h-[150px] overflow-hidden rounded-[14px] bg-[#E9F1F0] ${className}`}>
       <div className="absolute inset-0 bg-[linear-gradient(rgba(18,179,166,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(18,179,166,0.09)_1px,transparent_1px)] bg-[length:24px_24px]" />

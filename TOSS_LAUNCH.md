@@ -19,7 +19,13 @@ KAKAO_REST_API_KEY=카카오_REST_API_키
 OPENAI_API_KEY=AI_추천용_OpenAI_API_키
 ```
 
-브라우저에 노출되는 `VITE_*` 키는 사용하지 않는다.
+위 세 키는 **서버 전용 시크릿**이며 브라우저에 노출하지 않는다.
+
+예외: `VITE_KAKAO_MAP_KEY`(카카오 지도 JavaScript 키)는 **원래 브라우저에서 동작하는 공개키**로, 빌드 시 dist에 포함된다. 시크릿이 아니라 **카카오 콘솔의 사이트 도메인 등록**으로 보호되므로, 배포 도메인(및 로컬 테스트 도메인)을 반드시 등록한다.
+
+```env
+VITE_KAKAO_MAP_KEY=카카오_JavaScript_키   # 공개키(도메인 등록으로 보호)
+```
 
 ## 로컬 확인
 
