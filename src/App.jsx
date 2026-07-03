@@ -575,14 +575,42 @@ function LoadingScreen() {
 function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
+  const [overrides, setOverrides] = useState({}) // { [courseKey]: { [slotId]: place } } — 탭별 스왑
+  const [swapTarget, setSwapTarget] = useState(null) // { slotId, kind } | null
   const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
   const baseCourse = courses[activeIndex]
   const hasAiOverride = Boolean(aiPlans?.[baseCourse.key])
   const course = hasAiOverride ? { ...baseCourse, aiPlan: aiPlans[baseCourse.key] } : baseCourse
-  const planSource = hasAiOverride ? aiPlanSource : aiPlanSource === 'loading' ? 'loading' : 'fallback'
   const tone = accentClass[course.accent]
   const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
-  const currentDay = dayPlans[Math.min(activeDay, dayPlans.length - 1)]
+
+  // 유효 코스 = 기본 코스 + 사용자 스왑(오버라이드). 미터·리스트·지도 모두 이걸로 재계산.
+  const courseOverrides = overrides[course.key] || {}
+  const applyOverride = (place) => {
+    const rep = place.slotId ? courseOverrides[place.slotId] : null
+    return rep ? { ...rep, slotId: place.slotId } : place
+  }
+  const effectiveDays = dayPlans.map((day) => ({ ...day, places: day.places.map(applyOverride) }))
+  const effectivePlaces = effectiveDays.flatMap((day) => day.places)
+  const effectiveCourse = { ...course, days: effectiveDays, places: effectivePlaces }
+  const currentDay = effectiveDays[Math.min(activeDay, effectiveDays.length - 1)]
+  const editedCount = Object.keys(courseOverrides).length
+
+  const usedNames = new Set(effectivePlaces.map((p) => p.name))
+  const hasCandidates = (kind) => (tourPlaces || []).some((p) => p.kind === kind && !usedNames.has(p.name))
+  const baseSlotPlace = (slotId) => dayPlans.flatMap((d) => d.places).find((p) => p.slotId === slotId)
+  const swapCandidates = swapTarget ? (tourPlaces || []).filter((p) => p.kind === swapTarget.kind && !usedNames.has(p.name)) : []
+  const swapCurrent = swapTarget ? effectivePlaces.find((p) => p.slotId === swapTarget.slotId) : null
+
+  const setSlot = (slotId, place) => setOverrides((prev) => ({ ...prev, [course.key]: { ...(prev[course.key] || {}), [slotId]: place } }))
+  const clearSlot = (slotId) =>
+    setOverrides((prev) => {
+      const next = { ...(prev[course.key] || {}) }
+      delete next[slotId]
+      return { ...prev, [course.key]: next }
+    })
+  const resetCourse = () => setOverrides((prev) => ({ ...prev, [course.key]: {} }))
+
   return (
     <div className="flex min-h-screen flex-col sm:min-h-[860px]">
       <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
@@ -626,7 +654,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
             <span>식비 {course.ratios.food}%</span>
             <span>관광 {course.ratios.sight}%</span>
           </div>
-          <BudgetMeter course={course} />
+          <BudgetMeter course={effectiveCourse} />
           {dayPlans.length > 1 && (
             <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
               {dayPlans.map((day, idx) => (
@@ -650,7 +678,13 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
             </div>
             <div className="mt-3">
               {currentDay.places.map((place, idx) => (
-                <PlaceRow key={`${place.name}-${idx}`} place={place} index={idx + 1} region={input.region} />
+                <PlaceRow
+                  key={`${place.slotId || place.name}-${idx}`}
+                  place={place}
+                  index={idx + 1}
+                  region={input.region}
+                  onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
+                />
               ))}
             </div>
           </div>
@@ -658,10 +692,17 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           <div className="mt-5 rounded-[13px] bg-screen px-4 py-4 text-[13px] font-bold leading-relaxed text-ink-2">
             <span className="text-teal-deep">이동 안내</span> · {course.transit}
           </div>
-          <NearbyRecommendations tourPlaces={tourPlaces} coursePlaces={course.places} region={input.region} />
         </article>
       </div>
       <BottomBar>
+        {editedCount > 0 && (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-[12px] bg-amber/10 px-3 py-2">
+            <span className="text-[11px] font-semibold leading-snug text-amber-text">바꾼 {editedCount}곳은 공유 링크에 안 담겨요 (AI 기본 코스 기준)</span>
+            <button type="button" onClick={resetCourse} className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-teal-deep">
+              AI 추천으로
+            </button>
+          </div>
+        )}
         {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
         <PrimaryButton
           onClick={async () => {
@@ -673,6 +714,22 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           코스 공유하기
         </PrimaryButton>
       </BottomBar>
+      <SwapSheet
+        open={Boolean(swapTarget)}
+        currentPlace={swapCurrent}
+        basePlace={swapTarget ? baseSlotPlace(swapTarget.slotId) : null}
+        candidates={swapCandidates}
+        region={input.region}
+        onClose={() => setSwapTarget(null)}
+        onSelect={(place) => {
+          setSlot(swapTarget.slotId, place)
+          setSwapTarget(null)
+        }}
+        onRevert={() => {
+          clearSlot(swapTarget.slotId)
+          setSwapTarget(null)
+        }}
+      />
     </div>
   )
 }
@@ -924,71 +981,76 @@ function BudgetMeter({ course }) {
   )
 }
 
-function NearbyRecommendations({ tourPlaces, coursePlaces, region }) {
-  const [open, setOpen] = useState(false)
-  const used = new Set((coursePlaces || []).map((p) => p.name))
-  const pool = (tourPlaces || []).filter((p) => p && p.name && !used.has(p.name))
-  if (pool.length < 3) return null
-
-  const pick = (kind, n) => pool.filter((p) => p.kind === kind).slice(0, n)
-  const groups = [
-    { label: '추천 맛집', items: pick('food', 4) },
-    { label: '추천 숙소', items: pick('stay', 3) },
-    { label: '추천 관광', items: pick('sight', 4) },
-  ].filter((g) => g.items.length)
-  if (!groups.length) return null
-
+function SwapSheet({ open, currentPlace, basePlace, candidates, onClose, onSelect, onRevert }) {
+  if (!open) return null
+  const mid = (p) => {
+    const { min, max } = sumCostRange([p])
+    return Math.round((min + max) / 2)
+  }
+  const curMid = currentPlace ? mid(currentPlace) : 0
+  const kindLabel = currentPlace?.kind === 'stay' ? '숙소' : currentPlace?.kind === 'food' ? '맛집·카페' : '관광·체험'
+  const isEdited = basePlace && currentPlace && basePlace.name !== currentPlace.name
   const kindTone = (kind) =>
     kind === 'stay' ? 'bg-teal-tint text-teal-deep' : kind === 'food' ? 'bg-coral-tint text-coral-deep' : 'bg-amber/15 text-amber-text'
 
   return (
-    <section className="mt-5 border-t border-line-hair pt-1">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between py-2.5 text-[12.5px] font-bold text-ink-2"
-      >
-        <span>이 지역 다른 맛집·숙소 더보기</span>
-        <span className="flex items-center gap-1 text-ink-3">
-          {open ? '접기' : '더보기'}
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
-            <path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      </button>
-      {open && (
-        <div className="mt-1 grid gap-3">
-          {groups.map((g) => (
-            <div key={g.label}>
-              <p className="mb-2 text-[11.5px] font-extrabold text-ink-3">
-                {g.label} <span className="font-semibold text-ink-muted">{g.items.length}</span>
-              </p>
-              <div className="grid gap-2">
-                {g.items.map((place) => (
-                  <a
-                    key={place.name}
-                    href={kakaoMapUrl(place, region)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-3 rounded-[12px] border border-dashed border-[#DDE4E4] bg-[#F7F9F9] px-3 py-2.5"
+    <div className="fixed inset-0 z-50">
+      <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[430px]">
+        <div className="animate-fade-slide flex max-h-[82vh] flex-col rounded-t-[24px] bg-white pb-6 shadow-2xl">
+          <div className="flex items-center gap-2 px-4 pt-4">
+            <span className="h-9 w-9" />
+            <h3 className="flex-1 text-center text-base font-extrabold">{kindLabel} 바꾸기</h3>
+            <button type="button" onClick={onClose} className="h-9 w-9 rounded-full text-lg font-bold text-ink-3" aria-label="닫기">
+              ✕
+            </button>
+          </div>
+          <p className="px-4 pb-1 text-center text-[11.5px] font-semibold text-ink-3">고르면 예산 미터에 바로 반영돼요</p>
+          <div className="mt-2 flex-1 overflow-y-auto px-4">
+            {isEdited && (
+              <button
+                type="button"
+                onClick={onRevert}
+                className="mb-2 flex w-full items-center gap-2.5 rounded-[12px] border border-teal bg-teal-tint px-3 py-2.5 text-left"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sq bg-white text-[11px] font-extrabold text-teal-deep">AI</span>
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-teal-deep">AI 추천으로 되돌리기</span>
+                <span className="shrink-0 truncate text-[11.5px] font-semibold text-ink-2">{basePlace.name}</span>
+              </button>
+            )}
+            <div className="grid gap-2 pb-2">
+              {candidates.map((c) => {
+                const d = mid(c) - curMid
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => onSelect(c)}
+                    className="flex items-center gap-3 rounded-[12px] border border-line bg-white px-3 py-2.5 text-left hover:bg-screen"
                   >
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sq text-[12px] font-extrabold ${kindTone(place.kind)}`}>{place.icon}</span>
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sq text-[12px] font-extrabold ${kindTone(c.kind)}`}>{c.icon}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-bold">{place.name}</p>
-                      <p className="truncate text-[11px] font-semibold text-ink-3">{place.kakaoAddress || place.tag}</p>
+                      <p className="truncate text-[14px] font-bold">{c.name}</p>
+                      <p className="truncate text-[11px] font-semibold text-ink-3">{c.kakaoAddress || c.tag}</p>
                     </div>
-                    <span className="shrink-0 text-[11.5px] font-bold text-ink-2">{formatPlaceCost(place)}</span>
-                    <span className="shrink-0 rounded-full bg-[#EEF3F3] px-2 py-0.5 text-[10px] font-extrabold text-[#7B8A8F]">주변 추천</span>
-                  </a>
-                ))}
-              </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[12px] font-bold text-ink-2">{formatPlaceCost(c)}</p>
+                      {d !== 0 && (
+                        <p className="text-[10.5px] font-extrabold" style={{ color: d < 0 ? '#0E9A8F' : '#C0362F' }}>
+                          예산 {d < 0 ? '−' : '+'}
+                          {formatKRW(Math.abs(d))}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+              {!candidates.length && <p className="py-8 text-center text-sm font-semibold text-ink-3">이 지역엔 바꿀 후보가 없어요</p>}
             </div>
-          ))}
-          <p className="text-center text-[10.5px] font-semibold text-ink-3">담아서 예산에 반영하기는 다음 업데이트에서 제공돼요</p>
+          </div>
         </div>
-      )}
-    </section>
+      </div>
+    </div>
   )
 }
 
@@ -1134,7 +1196,7 @@ function kakaoMapUrl(place, region) {
   return `https://map.kakao.com/link/search/${encodeURIComponent(query)}`
 }
 
-function PlaceRow({ place, index, region }) {
+function PlaceRow({ place, index, region, onSwap }) {
   const kindTone =
     place.kind === 'stay'
       ? 'bg-teal-tint text-teal-deep'
@@ -1144,24 +1206,25 @@ function PlaceRow({ place, index, region }) {
   const detail = place.kakaoAddress || place.tag
   const subDetail = place.kakaoPhone || place.kakaoCategory || ''
   return (
-    <a
-      href={kakaoMapUrl(place, region)}
-      target="_blank"
-      rel="noreferrer"
-      className="flex items-center gap-3 border-b border-line-hair2 py-3 transition hover:bg-screen/80 last:border-0"
-    >
+    <div className="flex items-center gap-3 border-b border-line-hair2 py-3 last:border-0">
       <span className="w-5 text-center text-sm font-extrabold text-ink-muted">{index}</span>
       <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-sq text-sm font-extrabold ${kindTone}`}>{place.icon}</span>
-      <div className="min-w-0 flex-1">
+      <a href={kakaoMapUrl(place, region)} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
         <p className="truncate text-[15.5px] font-extrabold">{place.name}</p>
         <p className="truncate text-[12.5px] font-semibold text-ink-3">{detail}</p>
         {subDetail && <p className="truncate text-[11.5px] font-semibold text-ink-muted">{subDetail}</p>}
-      </div>
+      </a>
       <div className="shrink-0 text-right">
         <p className="text-[13px] font-bold text-ink-2">{formatPlaceCost(place)}</p>
-        <p className="mt-1 text-[11px] font-extrabold text-teal-deep">지도</p>
+        {onSwap ? (
+          <button type="button" onClick={onSwap} className="mt-1 rounded-full bg-teal-tint px-2.5 py-0.5 text-[11px] font-extrabold text-teal-deep">
+            바꾸기
+          </button>
+        ) : (
+          <p className="mt-1 text-[11px] font-extrabold text-teal-deep">지도</p>
+        )}
       </div>
-    </a>
+    </div>
   )
 }
 

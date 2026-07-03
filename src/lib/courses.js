@@ -326,7 +326,7 @@ function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, isD
     const dayPlaces = []
 
     for (let i = 0; i < nonStayCount; i += 1) {
-      dayPlaces.push(nonStayPool[cursor % nonStayPool.length])
+      dayPlaces.push({ ...nonStayPool[cursor % nonStayPool.length], slotId: `d${day}p${i}` })
       cursor += 1
     }
 
@@ -335,6 +335,7 @@ function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, isD
         ...stay,
         name: totalDays > 2 ? `${stay.name} (${day}박)` : stay.name,
         tag: `${day}박 숙소 · ${stay.tag.replace(/^숙박 ·\s*/u, '')}`,
+        slotId: 'stay', // 다박이면 밤마다 공유 → 스왑 시 전체 밤 일괄 교체
       })
     }
 
