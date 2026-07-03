@@ -706,6 +706,15 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
         <PrimaryButton
           onClick={async () => {
+            const cityName = input.region.split(' ').at(-1)
+            if (navigator.share) {
+              try {
+                await navigator.share({ title: `${cityName} 여행 코스`, text: '예산 맞춤 AI 여행 코스 추천', url: shareUrl })
+                return
+              } catch (err) {
+                if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소
+              }
+            }
             const copied = await copyTextToClipboard(shareUrl)
             setShareStatus(copied ? '공유 링크를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
             window.setTimeout(() => setShareStatus(''), 1800)
