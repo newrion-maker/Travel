@@ -9,7 +9,7 @@
 // courses[] 스키마는 README State Management 절을 바탕으로 하되, 기간별 표시를 위해 days[]를 추가한다.
 //   { key, label, accent, title, budget, ratios:{stay,food,sight}, transit, places:[...], days:[...] }
 
-import { computeNetBudget, budgetBand } from './budget.js'
+import { computeNetBudget, budgetBand, placeCostRange, sumCostRange, budgetState } from './budget.js'
 import { LABELS, LABEL_ACCENT } from './personality.js'
 
 // 축별 대표 비율 프로파일 (전일정 기준). 당일치기면 stay 제거 후 재정규화.
@@ -349,6 +349,30 @@ function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, isD
   return days
 }
 
+// 빨강 최소 방어: basePlaces에서 가장 비싼(최소비용 기준) 장소를 같은 kind의 더 싼 후보(pool)로 교체.
+// 최적화가 아니라 "기본 조합이 예산 초과(빨강)로 뜨는 최악"만 피하는 방어용. 대체 후보 없으면 그대로 둔다.
+function swapCheapestSameKind(basePlaces, pool) {
+  if (!basePlaces?.length) return null
+  let idx = 0
+  let worstMin = -1
+  basePlaces.forEach((p, i) => {
+    const { min } = placeCostRange(p)
+    if (min > worstMin) {
+      worstMin = min
+      idx = i
+    }
+  })
+  const target = basePlaces[idx]
+  const used = new Set(basePlaces.map((p) => p.name))
+  const cheaper = (pool || [])
+    .filter((c) => c.kind === target.kind && !used.has(c.name) && placeCostRange(c).min < worstMin)
+    .sort((a, b) => placeCostRange(a).min - placeCostRange(b).min)[0]
+  if (!cheaper) return null
+  const next = basePlaces.slice()
+  next[idx] = cheaper
+  return next
+}
+
 /**
  * @param {object} input  FlowContext input (region, period, transit, budget, fareIncluded ...)
  * @param {object} personality  computePersonality() 결과
@@ -371,15 +395,19 @@ export function generateCourses(input, personality, tourPlaces = []) {
 
   return order.map((axis) => {
     const fallbackPlaces = isGangneung ? PLACES_GANGNEUNG[axis] : genericPlaces(city, axis)
-    const basePlaces = buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier)
-    const days = buildDayPlans({
-      city,
-      axis,
-      period,
-      arrivalTime,
-      places: basePlaces,
-      isDayTrip,
-    })
+    let basePlaces = buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier)
+    let days = buildDayPlans({ city, axis, period, arrivalTime, places: basePlaces, isDayTrip })
+
+    // 빨강 최소 방어: 조합이 min 기준으로도 예산 초과(빨강)면, 가장 비싼 항목을 같은 kind의
+    // 더 싼 후보로 교체 후 재구성(최대 3회). 앰버(범위 걸침)는 정직한 상태이므로 그대로 둔다.
+    for (let guard = 0; guard < 3 && net > 0; guard += 1) {
+      if (budgetState(sumCostRange(days.flatMap((day) => day.places)), net) !== 'over') break
+      const swapped = swapCheapestSameKind(basePlaces, tourPlaces)
+      if (!swapped) break
+      basePlaces = swapped
+      days = buildDayPlans({ city, axis, period, arrivalTime, places: basePlaces, isDayTrip })
+    }
+
     const places = days.flatMap((day) => day.places)
     const ratios = ratioForPeriod(axis, isDayTrip)
     return {
