@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { QUESTIONS } from './data/questions.js'
 import regionData from './data/regions.json'
+import curatedData from './data/curated-regions.json'
 import { formatKRW, sumCostRange, budgetState, formatPlaceCost } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
@@ -319,15 +320,22 @@ function RegionPicker({ open, onClose, onSelect }) {
   if (!open) return null
 
   const q = query.trim()
+  const CURATED = curatedData.curated
+  const toItem = (sidoName, sg) => {
+    const c = CURATED[`${sidoName} ${sg.name}`]
+    return { key: `${sidoName}-${sg.code}`, region: `${sidoName} ${sg.name}`, sido: sidoName, sg: sg.name, label: c?.label || '', keywords: c?.keywords || [] }
+  }
   const searchResults = q
     ? regionData.sido
-        .flatMap((s) =>
-          s.sigungu
-            .filter((sg) => `${s.name} ${sg.name}`.includes(q) || sg.name.includes(q) || s.name.includes(q))
-            .map((sg) => `${s.name} ${sg.name}`),
+        .flatMap((s) => s.sigungu.map((sg) => toItem(s.name, sg)))
+        .filter(
+          (it) =>
+            it.region.includes(q) || it.sg.includes(q) || it.sido.includes(q) || it.label.includes(q) || it.keywords.some((k) => k.includes(q)),
         )
         .slice(0, 50)
     : []
+  // 큐레이션(인기 여행지)을 위로 정렬
+  const sigunguItems = sido ? sido.sigungu.map((sg) => toItem(sido.name, sg)).sort((a, b) => (b.label ? 1 : 0) - (a.label ? 1 : 0)) : []
 
   return (
     <div className="fixed inset-0 z-50">
@@ -352,22 +360,27 @@ function RegionPicker({ open, onClose, onSelect }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               inputMode="search"
-              placeholder="지역명 검색 (예: 평택)"
+              placeholder="지역·관광지 검색 (예: 경포대, 성심당)"
               className="h-11 w-full rounded-field border border-line bg-screen px-4 text-sm font-bold outline-none focus:border-teal"
             />
           </div>
+          {sido && !q && <p className="px-4 pt-2 text-[11.5px] font-semibold text-ink-3">가고 싶은 관광지로 골라보세요 (예: 경포대·성심당)</p>}
           <div className="mt-3 flex-1 overflow-y-auto px-4">
             {q ? (
               searchResults.length ? (
                 <div className="grid gap-1.5 pb-2">
-                  {searchResults.map((label) => (
+                  {searchResults.map((it) => (
                     <button
-                      key={label}
+                      key={it.key}
                       type="button"
-                      onClick={() => onSelect(label)}
-                      className="flex h-12 items-center rounded-[12px] border border-line bg-white px-4 text-left text-[15px] font-bold hover:bg-screen"
+                      onClick={() => onSelect(it.region)}
+                      className="flex items-center gap-2 rounded-[12px] border border-line bg-white px-4 py-2.5 text-left hover:bg-screen"
                     >
-                      {label}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-bold">{it.label || it.region}</p>
+                        {it.label && <p className="truncate text-[11px] font-semibold text-ink-3">{it.region}</p>}
+                      </div>
+                      {it.label && <span className="shrink-0 rounded-full bg-teal-tint px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">여행지</span>}
                     </button>
                   ))}
                 </div>
@@ -375,15 +388,19 @@ function RegionPicker({ open, onClose, onSelect }) {
                 <p className="py-10 text-center text-sm font-semibold text-ink-3">검색 결과가 없어요</p>
               )
             ) : sido ? (
-              <div className="grid grid-cols-2 gap-1.5 pb-2">
-                {sido.sigungu.map((sg) => (
+              <div className="grid gap-1.5 pb-2">
+                {sigunguItems.map((it) => (
                   <button
-                    key={sg.code}
+                    key={it.key}
                     type="button"
-                    onClick={() => onSelect(`${sido.name} ${sg.name}`)}
-                    className="flex h-12 items-center justify-center rounded-[12px] border border-line bg-white px-3 text-[15px] font-bold hover:bg-screen"
+                    onClick={() => onSelect(it.region)}
+                    className="flex items-center gap-2 rounded-[12px] border border-line bg-white px-4 py-2.5 text-left hover:bg-screen"
                   >
-                    {sg.name}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-bold">{it.label || it.sg}</p>
+                      {it.label && <p className="truncate text-[11px] font-semibold text-ink-3">{it.sg}</p>}
+                    </div>
+                    {it.label && <span className="shrink-0 rounded-full bg-teal-tint px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">여행지</span>}
                   </button>
                 ))}
               </div>
