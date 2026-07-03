@@ -146,7 +146,7 @@
 - **hover(웹뷰 데스크톱 테스트용)**: 테스트 선택지 `translateY(-2px)`.
 
 ## State Management (UI 관점)
-- `input`: { regionCode, region, period('당일치기'|'1박2일'|'2박3일 이상'), party:number, budget:number, transit('자차'|'대중교통'), fareIncluded:boolean }
+- `input`: { regionCode, region, period('당일치기'|'1박2일'|'2박3일'), party:number, budget:number, transit('자차'|'대중교통'), fareIncluded:boolean }
 - `testAnswers`: 문항별 선택(A/B/C) → §3.2 배점으로 L/F/A 합산 → 비율/라벨 산출
 - `personality`: { label, ratios:{stay,food,sight} }
 - `courses`: OpenAI 응답 파싱 결과(코스 3개). 각 코스 = { label, accent, title, budget, ratios, transit, places:[{no, kind, icon, name, tag, cost}] }

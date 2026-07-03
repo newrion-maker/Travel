@@ -848,6 +848,11 @@ function BudgetMeter({ course }) {
             </>
           )}
         </p>
+        {state === 'over' && (
+          <p className="mt-1.5 text-[11.5px] font-semibold leading-snug text-[#C0362F]">
+            이 예산으론 이 지역이 빠듯해요 — {course.days?.length > 1 ? '예산을 올리거나 당일치기를 추천드려요.' : '예산을 조금 더 올려보세요.'}
+          </p>
+        )}
         <div className="relative mt-3 h-2.5">
           <div className={`absolute inset-0 rounded-full ${t.track}`} />
           {state === 'near' ? (
