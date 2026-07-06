@@ -179,7 +179,7 @@ function sortPlacesForBudget(places, tier, kind) {
 }
 
 function isKakaoVerifiedPlace(place) {
-  return Boolean(place?.kakaoPlaceId && /^https?:\/\/place\.map\.kakao\.com\//u.test(place.mapUrl || ''))
+  return Boolean(place?.kakaoSupported !== false && place?.kakaoPlaceId && /^https?:\/\/place\.map\.kakao\.com\//u.test(place.mapUrl || ''))
 }
 
 function mergeUniquePlaces(...groups) {

@@ -105,26 +105,32 @@ export async function enrichPlacesWithKakao(region, places) {
   if (!hasUsableKakaoKey()) {
     return places.map((place) => ({
       ...place,
-      mapUrl: fallbackMapUrl(region, place.name),
+      mapUrl: '',
+      kakaoPlaceId: '',
+      kakaoSupported: false,
     }))
   }
 
   return mapWithConcurrency(places, KAKAO_CONCURRENCY, async (place) => {
     try {
       const kakao = await lookupPlaceCached(region, place)
+      const supported = Boolean(kakao?.id && kakao?.place_url)
       return {
         ...place,
-        mapUrl: kakao?.place_url || fallbackMapUrl(region, place.name),
+        mapUrl: supported ? kakao.place_url : '',
         kakaoPlaceId: kakao?.id || '',
         kakaoPlaceName: kakao?.place_name || '',
         kakaoAddress: kakao?.road_address_name || kakao?.address_name || '',
         kakaoPhone: kakao?.phone || '',
         kakaoCategory: kakao?.category_name || '',
+        kakaoSupported: supported,
       }
     } catch {
       return {
         ...place,
-        mapUrl: fallbackMapUrl(region, place.name),
+        mapUrl: '',
+        kakaoPlaceId: '',
+        kakaoSupported: false,
       }
     }
   })

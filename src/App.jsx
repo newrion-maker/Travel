@@ -115,7 +115,7 @@ function compactCourseForAi(course) {
 }
 
 function isKakaoVerifiedPlace(place) {
-  return Boolean(place?.kakaoPlaceId && /^https?:\/\/place\.map\.kakao\.com\//u.test(place.mapUrl || ''))
+  return Boolean(place?.kakaoSupported !== false && place?.kakaoPlaceId && /^https?:\/\/place\.map\.kakao\.com\//u.test(place.mapUrl || ''))
 }
 
 async function copyTextToClipboard(text) {
@@ -671,7 +671,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
     const rep = place.slotId ? courseOverrides[place.slotId] : null
     return rep ? { ...rep, slotId: place.slotId } : place
   }
-  const effectiveDays = dayPlans.map((day) => ({ ...day, places: day.places.map(applyOverride) }))
+  const effectiveDays = dayPlans.map((day) => ({ ...day, places: day.places.map(applyOverride).filter(isKakaoVerifiedPlace) }))
   const effectivePlaces = effectiveDays.flatMap((day) => day.places)
   const effectiveCourse = { ...course, days: effectiveDays, places: effectivePlaces }
   const currentDay = effectiveDays[Math.min(activeDay, effectiveDays.length - 1)]
@@ -759,18 +759,25 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
               <span className="text-[12px] font-bold text-teal-deep">{currentDay.summary}</span>
             </div>
             <div className="mt-3">
-              {currentDay.places.map((place, idx) => (
-                <PlaceRow
-                  key={`${place.slotId || place.name}-${idx}`}
-                  place={place}
-                  index={idx + 1}
-                  region={input.region}
-                  onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
-                />
-              ))}
+              {currentDay.places.length ? (
+                currentDay.places.map((place, idx) => (
+                  <PlaceRow
+                    key={`${place.slotId || place.name}-${idx}`}
+                    place={place}
+                    index={idx + 1}
+                    onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
+                  />
+                ))
+              ) : (
+                <div className="rounded-[13px] bg-screen px-4 py-5 text-center text-[13px] font-bold leading-relaxed text-ink-2">
+                  카카오맵에서 확인된 장소를 찾지 못했어요.
+                  <br />
+                  다른 지역이나 코스 유형을 선택해 주세요.
+                </div>
+              )}
             </div>
           </div>
-          <MapPreview places={currentDay.places} source={course.source} className="mt-5" />
+          <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-5" />
           <div className="mt-5 rounded-[13px] bg-screen px-4 py-4 text-[13px] font-bold leading-relaxed text-ink-2">
             <span className="text-teal-deep">이동 안내</span> · {course.transit}
           </div>
@@ -1287,13 +1294,7 @@ function MapPlaceholder({ places, source, className }) {
   )
 }
 
-function kakaoMapUrl(place, region) {
-  if (place.mapUrl) return place.mapUrl
-  const query = [region, place.name].filter(Boolean).join(' ')
-  return `https://map.kakao.com/link/search/${encodeURIComponent(query)}`
-}
-
-function PlaceRow({ place, index, region, onSwap }) {
+function PlaceRow({ place, index, onSwap }) {
   const kindTone =
     place.kind === 'stay'
       ? 'bg-teal-tint text-teal-deep'
@@ -1306,7 +1307,7 @@ function PlaceRow({ place, index, region, onSwap }) {
     <div className="flex items-center gap-3 border-b border-line-hair2 py-3 last:border-0">
       <span className="w-5 text-center text-sm font-extrabold text-ink-muted">{index}</span>
       <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-sq text-sm font-extrabold ${kindTone}`}>{place.icon}</span>
-      <a href={kakaoMapUrl(place, region)} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
+      <a href={place.mapUrl} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
         <p className="truncate text-[15.5px] font-extrabold">{place.name}</p>
         <p className="truncate text-[12.5px] font-semibold text-ink-3">{detail}</p>
         {subDetail && <p className="truncate text-[11.5px] font-semibold text-ink-muted">{subDetail}</p>}
