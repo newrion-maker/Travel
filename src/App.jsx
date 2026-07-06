@@ -232,7 +232,7 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen bg-[#e7ebeb] text-ink">
+    <main className="min-h-[100dvh] bg-screen text-ink sm:bg-[#e7ebeb]">
       <PhoneShell tone={screen === 'splash' ? 'teal' : 'light'}>
         {screen === 'splash' && <Splash onStart={() => setScreen('input')} />}
         {screen === 'input' && (
@@ -271,9 +271,9 @@ export default function App() {
 
 function PhoneShell({ children, tone }) {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-stretch justify-center bg-[#dfe5e5] sm:py-6">
+    <div className="mx-auto flex min-h-[100dvh] w-full bg-screen sm:max-w-[430px] sm:items-stretch sm:justify-center sm:bg-[#dfe5e5] sm:py-6">
       <section
-        className={`relative min-h-screen w-full overflow-hidden sm:min-h-[860px] sm:rounded-[34px] sm:shadow-2xl ${
+        className={`relative h-[100dvh] min-h-[100dvh] w-full overflow-hidden sm:h-auto sm:min-h-[860px] sm:rounded-[34px] sm:shadow-2xl ${
           tone === 'teal' ? 'bg-teal text-white' : 'bg-screen text-ink'
         }`}
       >
@@ -285,7 +285,7 @@ function PhoneShell({ children, tone }) {
 
 function Splash({ onStart }) {
   return (
-    <div className="flex min-h-screen flex-col px-6 pb-9 pt-[70px] sm:min-h-[860px]">
+    <div className="flex min-h-[100dvh] flex-col px-6 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[64px] sm:min-h-[860px]">
       <div className="pointer-events-none absolute -left-10 top-24 h-44 w-44 rounded-full bg-white/10" />
       <div className="pointer-events-none absolute -right-12 top-36 h-32 w-32 rounded-full bg-coral/35" />
       <div className="mx-auto rounded-full bg-white/20 px-4 py-2 text-[12.5px] font-bold">AI 여행 코스 추천</div>
@@ -492,11 +492,11 @@ function RegionPicker({ open, onClose, onSelect }) {
 function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   const [regionOpen, setRegionOpen] = useState(false)
   return (
-    <div className="flex min-h-screen flex-col sm:min-h-[860px]">
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto px-5 pb-28 pt-5">
-        <h2 className="whitespace-pre-line text-2xl font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
-        <p className="mt-3 text-sm font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3">
+        <h2 className="whitespace-pre-line text-[22px] font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
+        <p className="mt-2 text-[13px] font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
         <Field label="지역">
           <button
             type="button"
@@ -532,12 +532,12 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           </div>
         </Field>
         <Field label="예산">
-          <div className="flex h-[62px] items-center rounded-field border-[1.5px] border-teal bg-white px-4 shadow-field">
+          <div className="flex h-[56px] items-center rounded-field border-[1.5px] border-teal bg-white px-4 shadow-field">
             <input
               inputMode="numeric"
               value={formatKRW(input.budget)}
               onChange={(e) => setInput({ ...input, budget: Number(e.target.value.replace(/[^\d]/g, '')) })}
-              className="min-w-0 flex-1 bg-transparent text-[26px] font-extrabold outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[24px] font-extrabold outline-none"
             />
             <span className="text-lg font-bold text-ink-2">원</span>
           </div>
@@ -694,9 +694,9 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const resetCourse = () => setOverrides((prev) => ({ ...prev, [course.key]: {} }))
 
   return (
-    <div className="flex min-h-screen flex-col sm:min-h-[860px]">
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
-      <div className="px-5 pt-3">
+      <div className="px-4 pt-2">
         <div className="grid rounded-[14px] bg-[#E9EEEE] p-1" style={{ gridTemplateColumns: `repeat(${courses.length}, minmax(0, 1fr))` }}>
           {courses.map((item, idx) => (
             <button
@@ -706,15 +706,15 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
                 setShareStatus('')
                 onActive(idx)
               }}
-              className={`h-10 rounded-sq-lg text-[13px] font-extrabold ${activeIndex === idx ? 'bg-white text-ink shadow-seg' : 'text-[#7B8A8F]'}`}
+              className={`h-9 rounded-sq-lg text-[12.5px] font-extrabold ${activeIndex === idx ? 'bg-white text-ink shadow-seg' : 'text-[#7B8A8F]'}`}
             >
               {idx === 0 ? '맞춤형' : item.key === 'L' ? '호캉스' : item.key === 'F' ? '미식형' : '알뜰형'}
             </button>
           ))}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-5 pb-28 pt-4">
-        <article className="animate-fade-in rounded-card-lg bg-white p-5 shadow-card">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(104px+env(safe-area-inset-bottom))] pt-3">
+        <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col items-start gap-2">
               <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${tone.chip}`}>{course.label} 코스</span>
@@ -725,20 +725,20 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
               <p className="text-base font-extrabold">{course.budget}</p>
             </div>
           </div>
-          <h2 className="mt-5 text-[21px] font-extrabold">{course.title}</h2>
+          <h2 className="mt-4 text-[19px] font-extrabold">{course.title}</h2>
           <div className="mt-2 flex items-start gap-1.5">
             <span className="mt-0.5 shrink-0 rounded-full bg-[#EAF2F1] px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">AI</span>
-            <p className="text-[12.5px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan?.summary || '예산에 맞춰 코스를 정리했어요.'}</p>
+            <p className="text-[12px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan?.summary || '예산에 맞춰 코스를 정리했어요.'}</p>
           </div>
           <RatioBar ratios={course.ratios} className="mt-4" />
-          <div className="mt-1.5 flex gap-3 text-[11px] font-semibold text-ink-3">
+          <div className="mt-1.5 flex gap-2.5 text-[10.5px] font-semibold text-ink-3">
             <span>숙박 {course.ratios.stay}%</span>
             <span>식비 {course.ratios.food}%</span>
             <span>관광 {course.ratios.sight}%</span>
           </div>
           <BudgetMeter course={effectiveCourse} />
           {dayPlans.length > 1 && (
-            <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
+            <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
               {dayPlans.map((day, idx) => (
                 <button
                   key={day.day}
@@ -753,8 +753,8 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
               ))}
             </div>
           )}
-          <div className="mt-5">
-            <div className="flex items-end justify-between gap-3">
+          <div className="mt-4">
+            <div className="flex items-end justify-between gap-2">
               <p className="text-[12.5px] font-extrabold text-ink-3">{currentDay.title} 코스 동선</p>
               <span className="text-[12px] font-bold text-teal-deep">{currentDay.summary}</span>
             </div>
@@ -777,8 +777,8 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
               )}
             </div>
           </div>
-          <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-5" />
-          <div className="mt-5 rounded-[13px] bg-screen px-4 py-4 text-[13px] font-bold leading-relaxed text-ink-2">
+          <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-4" />
+          <div className="mt-4 rounded-[13px] bg-screen px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-ink-2">
             <span className="text-teal-deep">이동 안내</span> · {course.transit}
           </div>
         </article>
@@ -834,7 +834,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
 
 function Header({ title, onBack, onHome, right }) {
   return (
-    <header className="flex h-[58px] items-center gap-3 px-4 pt-2">
+    <header className="flex h-[54px] shrink-0 items-center gap-2.5 px-3.5 pt-[max(env(safe-area-inset-top),8px)]">
       {onBack ? (
         <button onClick={onBack} className="h-9 w-9 rounded-full text-2xl font-bold text-ink-2" aria-label="뒤로">
           ‹
@@ -843,7 +843,7 @@ function Header({ title, onBack, onHome, right }) {
         <span className="h-9 w-9" />
       )}
       <h1 className="text-base font-extrabold">{title}</h1>
-      {right && <span className="ml-auto max-w-[170px] truncate text-[12px] font-bold text-ink-3">{right}</span>}
+      {right && <span className="ml-auto max-w-[150px] truncate text-[11.5px] font-bold text-ink-3">{right}</span>}
       {onHome && <HomeButton onClick={onHome} />}
     </header>
   )
@@ -865,8 +865,8 @@ function HomeButton({ onClick, className = '' }) {
 
 function Field({ label, children }) {
   return (
-    <label className="mt-6 block">
-      <span className="mb-2 block text-[13.5px] font-extrabold text-ink-2">{label}</span>
+    <label className="mt-5 block">
+      <span className="mb-1.5 block text-[13px] font-extrabold text-ink-2">{label}</span>
       {children}
     </label>
   )
@@ -881,7 +881,7 @@ function ChipGroup({ value, options, onChange, variant = 'teal' }) {
           key={option}
           type="button"
           onClick={() => onChange(option)}
-          className={`h-[46px] flex-1 rounded-chip border px-2 text-sm font-bold ${
+          className={`h-11 flex-1 rounded-chip border px-2 text-[13px] font-bold ${
             value === option ? selected : 'border-line bg-white text-ink-2'
           }`}
         >
@@ -905,7 +905,7 @@ function StepButton({ children, fill, onClick }) {
 }
 
 function BottomBar({ children }) {
-  return <div className="absolute inset-x-0 bottom-0 border-t border-line-footer bg-screen px-5 pb-8 pt-3">{children}</div>
+  return <div className="absolute inset-x-0 bottom-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">{children}</div>
 }
 
 function PrimaryButton({ children, disabled, onClick }) {
@@ -913,7 +913,7 @@ function PrimaryButton({ children, disabled, onClick }) {
     <button
       disabled={disabled}
       onClick={onClick}
-      className="h-14 w-full rounded-btn bg-teal text-base font-extrabold text-white shadow-cta disabled:bg-[#DCE2E2] disabled:text-[#9AA6AB] disabled:shadow-none"
+      className="h-[52px] w-full rounded-btn bg-teal text-[15px] font-extrabold text-white shadow-cta disabled:bg-[#DCE2E2] disabled:text-[#9AA6AB] disabled:shadow-none"
     >
       {children}
     </button>
@@ -976,8 +976,8 @@ function BudgetMeter({ course }) {
   ].filter((c) => c.target > 0 || c.actual.max > 0)
 
   return (
-    <section className={`mt-4 overflow-hidden rounded-[14px] ${t.bg}`}>
-      <div className="px-4 pb-3 pt-3.5">
+    <section className={`mt-3 overflow-hidden rounded-[14px] ${t.bg}`}>
+      <div className="px-3.5 pb-3 pt-3">
         <div className="flex items-center justify-between">
           <span className={`text-[12px] font-extrabold ${t.accent}`}>예산 사용</span>
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold ${t.pill}`}>
@@ -989,7 +989,7 @@ function BudgetMeter({ course }) {
             {t.label}
           </span>
         </div>
-        <p className="mt-2 text-[13.5px] text-ink">
+        <p className="mt-2 text-[13px] leading-snug text-ink">
           {state === 'under' ? (
             <>
               <b className="font-extrabold">선택 합계 ~{formatKRW(mid)}원</b> <span className="text-ink-3">/ {formatKRW(net)}원</span> · 여유 ~{formatKRW(Math.max(0, net - mid))}원
@@ -1014,7 +1014,7 @@ function BudgetMeter({ course }) {
             이 예산으론 이 지역이 빠듯해요 — {course.days?.length > 1 ? '예산을 올리거나 당일치기를 추천드려요.' : '예산을 조금 더 올려보세요.'}
           </p>
         )}
-        <div className="relative mt-3 h-2.5">
+        <div className="relative mt-2.5 h-2.5">
           <div className={`absolute inset-0 rounded-full ${t.track}`} />
           {state === 'near' ? (
             <>
@@ -1032,7 +1032,7 @@ function BudgetMeter({ course }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`flex w-full items-center justify-between border-t px-4 py-2.5 text-[11.5px] font-bold text-ink-2 ${t.divide}`}
+        className={`flex w-full items-center justify-between border-t px-3.5 py-2.5 text-[11.5px] font-bold text-ink-2 ${t.divide}`}
       >
         <span>카테고리별 목표 대비</span>
         <span className="flex items-center gap-1 text-ink-3">
@@ -1304,22 +1304,22 @@ function PlaceRow({ place, index, onSwap }) {
   const detail = place.kakaoAddress || place.tag
   const subDetail = place.kakaoPhone || place.kakaoCategory || ''
   return (
-    <div className="flex items-center gap-3 border-b border-line-hair2 py-3 last:border-0">
-      <span className="w-5 text-center text-sm font-extrabold text-ink-muted">{index}</span>
-      <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-sq text-sm font-extrabold ${kindTone}`}>{place.icon}</span>
+    <div className="flex items-center gap-2.5 border-b border-line-hair2 py-2.5 last:border-0">
+      <span className="w-4 text-center text-[13px] font-extrabold text-ink-muted">{index}</span>
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sq text-[13px] font-extrabold ${kindTone}`}>{place.icon}</span>
       <a href={place.mapUrl} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
-        <p className="truncate text-[15.5px] font-extrabold">{place.name}</p>
-        <p className="truncate text-[12.5px] font-semibold text-ink-3">{detail}</p>
-        {subDetail && <p className="truncate text-[11.5px] font-semibold text-ink-muted">{subDetail}</p>}
+        <p className="truncate text-[14.5px] font-extrabold">{place.name}</p>
+        <p className="truncate text-[12px] font-semibold text-ink-3">{detail}</p>
+        {subDetail && <p className="truncate text-[11px] font-semibold text-ink-muted">{subDetail}</p>}
       </a>
       <div className="shrink-0 text-right">
-        <p className="text-[13px] font-bold text-ink-2">{formatPlaceCost(place)}</p>
+        <p className="text-[12.5px] font-bold text-ink-2">{formatPlaceCost(place)}</p>
         {onSwap ? (
-          <button type="button" onClick={onSwap} className="mt-1 rounded-full bg-teal-tint px-2.5 py-0.5 text-[11px] font-extrabold text-teal-deep">
+          <button type="button" onClick={onSwap} className="mt-1 h-7 rounded-full bg-teal-tint px-2.5 text-[10.5px] font-extrabold text-teal-deep">
             바꾸기
           </button>
         ) : (
-          <p className="mt-1 text-[11px] font-extrabold text-teal-deep">지도</p>
+          <p className="mt-1 text-[10.5px] font-extrabold text-teal-deep">지도</p>
         )}
       </div>
     </div>

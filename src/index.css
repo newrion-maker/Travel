@@ -10,6 +10,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  min-height: 100%;
 }
 
 body {
@@ -17,6 +18,12 @@ body {
   font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+#root {
+  min-height: 100dvh;
 }
 
 * {
@@ -27,4 +34,9 @@ button,
 input,
 select {
   font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
