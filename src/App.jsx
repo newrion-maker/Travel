@@ -371,17 +371,19 @@ function RegionPicker({ open, onClose, onSelect }) {
     : []
 
   // 시/도의 여행지(명소)를 펼친 목록. 각 명소 → 소속 구로 코스 생성.
+  // 각 구의 대표 명소(첫 키워드)부터 한 바퀴씩 돌려, 지역별 대표지가 먼저 오게(인기순) 한다.
   const spotItems = []
   if (sido) {
-    const seen = new Set()
     const prefix = `${sido.name} `
-    // curated JSON에 적은 순서(인기순)대로 명소를 펼친다.
-    for (const key of Object.keys(CURATED)) {
-      if (!key.startsWith(prefix)) continue
-      const sgName = key.slice(prefix.length)
-      for (const spot of CURATED[key].keywords || []) {
-        if (seen.has(spot)) continue
+    const curatedKeys = Object.keys(CURATED).filter((k) => k.startsWith(prefix))
+    const maxLen = curatedKeys.reduce((m, k) => Math.max(m, (CURATED[k].keywords || []).length), 0)
+    const seen = new Set()
+    for (let i = 0; i < maxLen; i += 1) {
+      for (const key of curatedKeys) {
+        const spot = (CURATED[key].keywords || [])[i]
+        if (!spot || seen.has(spot)) continue
         seen.add(spot)
+        const sgName = key.slice(prefix.length)
         spotItems.push({ key: `${key}-${spot}`, spot, sg: sgName, region: key, regionLabel: `${sido.name} ${spot}` })
       }
     }
