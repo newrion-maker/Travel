@@ -614,7 +614,7 @@ function PersonalityScreen({ personality, onHome, onNext }) {
       <img
         src={resultImage}
         alt="성향 결과 이미지"
-        className={`mx-auto mt-9 h-[132px] w-[132px] rounded-full object-cover shadow-card-soft ${tone.bg}`}
+        className="mx-auto mt-9 h-[132px] w-[132px] rounded-[30px] object-contain shadow-card-soft"
       />
       <p className="mt-8 text-sm font-bold text-ink-2">당신의 여름 여행 성향은</p>
       <h2 className={`mt-2 text-[30px] font-extrabold ${tone.text}`}>{personality.label}</h2>
