@@ -114,6 +114,10 @@ function compactCourseForAi(course) {
   }
 }
 
+function isKakaoVerifiedPlace(place) {
+  return Boolean(place?.kakaoPlaceId && /^https?:\/\/place\.map\.kakao\.com\//u.test(place.mapUrl || ''))
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -674,9 +678,10 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const editedCount = Object.keys(courseOverrides).length
 
   const usedNames = new Set(effectivePlaces.map((p) => p.name))
-  const hasCandidates = (kind) => (tourPlaces || []).some((p) => p.kind === kind && !usedNames.has(p.name))
+  const verifiedTourPlaces = (tourPlaces || []).filter(isKakaoVerifiedPlace)
+  const hasCandidates = (kind) => verifiedTourPlaces.some((p) => p.kind === kind && !usedNames.has(p.name))
   const baseSlotPlace = (slotId) => dayPlans.flatMap((d) => d.places).find((p) => p.slotId === slotId)
-  const swapCandidates = swapTarget ? (tourPlaces || []).filter((p) => p.kind === swapTarget.kind && !usedNames.has(p.name)) : []
+  const swapCandidates = swapTarget ? verifiedTourPlaces.filter((p) => p.kind === swapTarget.kind && !usedNames.has(p.name)) : []
   const swapCurrent = swapTarget ? effectivePlaces.find((p) => p.slotId === swapTarget.slotId) : null
 
   const setSlot = (slotId, place) => setOverrides((prev) => ({ ...prev, [course.key]: { ...(prev[course.key] || {}), [slotId]: place } }))

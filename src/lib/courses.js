@@ -178,7 +178,26 @@ function sortPlacesForBudget(places, tier, kind) {
   })
 }
 
-function buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier) {
+function isKakaoVerifiedPlace(place) {
+  return Boolean(place?.kakaoPlaceId && /^https?:\/\/place\.map\.kakao\.com\//u.test(place.mapUrl || ''))
+}
+
+function mergeUniquePlaces(...groups) {
+  const used = new Set()
+  const result = []
+
+  for (const group of groups) {
+    for (const place of group || []) {
+      if (!place?.name || used.has(place.name)) continue
+      used.add(place.name)
+      result.push(place)
+    }
+  }
+
+  return result
+}
+
+function buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier, allowFallback) {
   if (!Array.isArray(tourPlaces) || tourPlaces.length < 3) return fallbackPlaces
 
   const byKind = {
@@ -196,7 +215,7 @@ function buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier) {
 
   for (const kind of shape) {
     const fromApi = byKind[kind]?.find((place) => !used.has(place.name))
-    const fromFallback = fallbackPlaces.find((place) => place.kind === kind && !used.has(place.name))
+    const fromFallback = allowFallback ? fallbackPlaces.find((place) => place.kind === kind && !used.has(place.name)) : null
     const place = fromApi || fromFallback
     if (place) {
       used.add(place.name)
@@ -204,7 +223,8 @@ function buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier) {
     }
   }
 
-  for (const place of fallbackPlaces) {
+  const fillPool = allowFallback ? fallbackPlaces : tourPlaces
+  for (const place of fillPool) {
     if (result.length >= 5) break
     if (!used.has(place.name)) {
       used.add(place.name)
@@ -310,13 +330,15 @@ function orderFirstDayPlaces(places, arrivalTime) {
   })
 }
 
-function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, isDayTrip }) {
+function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, candidatePlaces = [], isDayTrip, allowSyntheticPlaces = true }) {
   const totalDays = tripDays(period)
   const targets = [...DAY_PLACE_TARGETS[totalDays]]
   targets[0] = Math.min(targets[0], FIRST_DAY_TARGET_BY_ARRIVAL[arrivalTime] ?? targets[0])
   const stay = places.find((place) => place.kind === 'stay')
   const nonStayBase = places.filter((place) => place.kind !== 'stay')
-  const nonStayPool = orderFirstDayPlaces([...nonStayBase, ...extraPlaces(city, axis)], arrivalTime)
+  const candidateNonStay = candidatePlaces.filter((place) => place.kind !== 'stay')
+  const syntheticNonStay = allowSyntheticPlaces ? extraPlaces(city, axis) : []
+  const nonStayPool = orderFirstDayPlaces(mergeUniquePlaces(nonStayBase, candidateNonStay, syntheticNonStay), arrivalTime)
   const days = []
   let cursor = 0
 
@@ -326,6 +348,7 @@ function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, isD
     const dayPlaces = []
 
     for (let i = 0; i < nonStayCount; i += 1) {
+      if (!nonStayPool.length) break
       dayPlaces.push({ ...nonStayPool[cursor % nonStayPool.length], slotId: `d${day}p${i}` })
       cursor += 1
     }
@@ -388,7 +411,8 @@ export function generateCourses(input, personality, tourPlaces = []) {
   const tier = budgetTier({ net, party, period, isDayTrip })
 
   const isGangneung = /강릉/.test(region || '')
-  const hasApiPlaces = Array.isArray(tourPlaces) && tourPlaces.length >= 3
+  const verifiedTourPlaces = Array.isArray(tourPlaces) ? tourPlaces.filter(isKakaoVerifiedPlace) : []
+  const hasApiPlaces = verifiedTourPlaces.length >= 3
 
   // 메인 먼저, 나머지 축을 서브로 (§3.4). 당일치기는 숙박 축(L=호캉스)을 제외한다.
   const axisPool = isDayTrip ? ['F', 'A'] : ['L', 'F', 'A']
@@ -396,17 +420,35 @@ export function generateCourses(input, personality, tourPlaces = []) {
 
   return order.map((axis) => {
     const fallbackPlaces = isGangneung ? PLACES_GANGNEUNG[axis] : genericPlaces(city, axis)
-    let basePlaces = buildApiPlaces(tourPlaces, axis, fallbackPlaces, tier)
-    let days = buildDayPlans({ city, axis, period, arrivalTime, places: basePlaces, isDayTrip })
+    let basePlaces = buildApiPlaces(verifiedTourPlaces, axis, fallbackPlaces, tier, !hasApiPlaces)
+    let days = buildDayPlans({
+      city,
+      axis,
+      period,
+      arrivalTime,
+      places: basePlaces,
+      candidatePlaces: verifiedTourPlaces,
+      isDayTrip,
+      allowSyntheticPlaces: !hasApiPlaces,
+    })
 
     // 빨강 최소 방어: 조합이 min 기준으로도 예산 초과(빨강)면, 가장 비싼 항목을 같은 kind의
     // 더 싼 후보로 교체 후 재구성(최대 3회). 앰버(범위 걸침)는 정직한 상태이므로 그대로 둔다.
     for (let guard = 0; guard < 3 && net > 0; guard += 1) {
       if (budgetState(sumCostRange(days.flatMap((day) => day.places)), net) !== 'over') break
-      const swapped = swapCheapestSameKind(basePlaces, tourPlaces)
+      const swapped = swapCheapestSameKind(basePlaces, verifiedTourPlaces)
       if (!swapped) break
       basePlaces = swapped
-      days = buildDayPlans({ city, axis, period, arrivalTime, places: basePlaces, isDayTrip })
+      days = buildDayPlans({
+        city,
+        axis,
+        period,
+        arrivalTime,
+        places: basePlaces,
+        candidatePlaces: verifiedTourPlaces,
+        isDayTrip,
+        allowSyntheticPlaces: !hasApiPlaces,
+      })
     }
 
     const places = days.flatMap((day) => day.places)
