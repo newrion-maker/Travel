@@ -12,7 +12,8 @@ import personalitySight from './assets/personality-sight.webp'
 import personalityStay from './assets/personality-stay.webp'
 
 const initialInput = {
-  region: '강원 강릉시',
+  region: '',
+  regionLabel: '',
   period: '1박2일',
   party: 2,
   arrivalTime: '오후',
@@ -48,6 +49,7 @@ function readSharedState() {
   const nextInput = {
     ...initialInput,
     region: params.get('r') || initialInput.region,
+    regionLabel: params.get('rl') || params.get('r') || initialInput.regionLabel,
     period: params.get('p') || initialInput.period,
     party: parsePositiveNumber(params.get('party'), initialInput.party),
     arrivalTime: params.get('arr') || initialInput.arrivalTime,
@@ -75,6 +77,7 @@ function buildShareUrl({ input, answers, active }) {
   const params = new URLSearchParams()
   params.set('view', 'courses')
   params.set('r', input.region)
+  if (input.regionLabel && input.regionLabel !== input.region) params.set('rl', input.regionLabel)
   params.set('p', input.period)
   params.set('party', String(input.party))
   params.set('arr', input.arrivalTime)
@@ -157,7 +160,10 @@ export default function App() {
   const currentQuestion = QUESTIONS[questionIndex]
 
   useEffect(() => {
-    if (!hasTourApiKey) return
+    if (!hasTourApiKey || !input.region) {
+      setTourPlaces([])
+      return
+    }
 
     let alive = true
     fetchTourPlaces(input.region)
@@ -327,16 +333,39 @@ function RegionPicker({ open, onClose, onSelect }) {
 
   const q = query.trim()
   const CURATED = curatedData.curated
+  const makeRegionLabel = (region, label) => {
+    const sidoName = region.split(' ')[0] || ''
+    if (!label) return region
+    return label.startsWith(sidoName) ? label : `${sidoName} ${label}`
+  }
   const toItem = (sidoName, sg) => {
     const c = CURATED[`${sidoName} ${sg.name}`]
-    return { key: `${sidoName}-${sg.code}`, region: `${sidoName} ${sg.name}`, sido: sidoName, sg: sg.name, label: c?.label || '', keywords: c?.keywords || [] }
+    const region = `${sidoName} ${sg.name}`
+    return { key: `${sidoName}-${sg.code}`, region, regionLabel: makeRegionLabel(region, c?.label || ''), sido: sidoName, sg: sg.name, label: c?.label || '', keywords: c?.keywords || [] }
   }
+  const allSpotItems = Object.entries(CURATED).flatMap(([region, info]) => {
+    const sidoName = region.split(' ')[0] || ''
+    const sgName = region.split(' ').slice(1).join(' ')
+    return (info.keywords || []).map((spot) => ({
+      key: `${region}-${spot}`,
+      spot,
+      sg: sgName,
+      region,
+      regionLabel: `${sidoName} ${spot}`,
+      label: spot,
+      keywords: [spot, info.label || '', region],
+    }))
+  })
   const searchResults = q
-    ? regionData.sido
-        .flatMap((s) => s.sigungu.map((sg) => toItem(s.name, sg)))
+    ? [
+        ...allSpotItems.filter(
+          (it) => it.region.includes(q) || it.sg.includes(q) || it.spot.includes(q) || it.keywords.some((k) => k.includes(q)),
+        ),
+        ...regionData.sido.flatMap((s) => s.sigungu.map((sg) => toItem(s.name, sg))),
+      ]
         .filter(
           (it) =>
-            it.region.includes(q) || it.sg.includes(q) || it.sido.includes(q) || it.label.includes(q) || it.keywords.some((k) => k.includes(q)),
+            it.region.includes(q) || it.sg.includes(q) || it.sido?.includes(q) || it.label.includes(q) || it.keywords.some((k) => k.includes(q)),
         )
         .slice(0, 50)
     : []
@@ -353,7 +382,7 @@ function RegionPicker({ open, onClose, onSelect }) {
       for (const spot of CURATED[key].keywords || []) {
         if (seen.has(spot)) continue
         seen.add(spot)
-        spotItems.push({ key: `${key}-${spot}`, spot, sg: sgName, region: key })
+        spotItems.push({ key: `${key}-${spot}`, spot, sg: sgName, region: key, regionLabel: `${sido.name} ${spot}` })
       }
     }
   }
@@ -408,11 +437,11 @@ function RegionPicker({ open, onClose, onSelect }) {
                     <button
                       key={it.key}
                       type="button"
-                      onClick={() => onSelect(it.region)}
+                      onClick={() => onSelect({ region: it.region, regionLabel: it.regionLabel })}
                       className="flex items-center gap-2 rounded-[12px] border border-line bg-white px-4 py-2.5 text-left hover:bg-screen"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[15px] font-bold">{it.label || it.region}</p>
+                        <p className="truncate text-[15px] font-bold">{it.regionLabel || it.label || it.region}</p>
                         {it.label && <p className="truncate text-[11px] font-semibold text-ink-3">{it.region}</p>}
                       </div>
                       {it.label && <span className="shrink-0 rounded-full bg-teal-tint px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">여행지</span>}
@@ -428,7 +457,7 @@ function RegionPicker({ open, onClose, onSelect }) {
                   <button
                     key={it.key}
                     type="button"
-                    onClick={() => onSelect(it.region)}
+                    onClick={() => onSelect({ region: it.region, regionLabel: it.regionLabel })}
                     className="flex items-center gap-2 rounded-[12px] border border-line bg-white px-4 py-2.5 text-left hover:bg-screen"
                   >
                     <p className="min-w-0 flex-1 truncate text-[15px] font-bold">{it.spot}</p>
@@ -454,7 +483,7 @@ function RegionPicker({ open, onClose, onSelect }) {
                   <button
                     key={it.key}
                     type="button"
-                    onClick={() => onSelect(it.region)}
+                    onClick={() => onSelect({ region: it.region, regionLabel: it.regionLabel })}
                     className="flex items-center gap-2 rounded-[12px] border border-line bg-white px-4 py-2.5 text-left hover:bg-screen"
                   >
                     <div className="min-w-0 flex-1">
@@ -501,16 +530,18 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           <button
             type="button"
             onClick={() => setRegionOpen(true)}
-            className="flex h-[54px] w-full items-center justify-between rounded-field border-[1.5px] border-teal bg-white px-4 text-base font-bold shadow-field"
+            className={`flex h-[54px] w-full items-center justify-between rounded-field border-[1.5px] bg-white px-4 text-base font-bold shadow-field ${
+              input.region ? 'border-teal text-ink' : 'border-line text-ink-3'
+            }`}
           >
-            <span>{input.region}</span>
+            <span>{input.regionLabel || input.region || '지역을 선택해주세요'}</span>
             <span className="text-[13px] font-bold text-teal-deep">변경</span>
           </button>
           <RegionPicker
             open={regionOpen}
             onClose={() => setRegionOpen(false)}
-            onSelect={(region) => {
-              setInput({ ...input, region })
+            onSelect={({ region, regionLabel }) => {
+              setInput({ ...input, region, regionLabel: regionLabel || region })
               setRegionOpen(false)
             }}
           />
@@ -697,7 +728,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
-      <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
+      <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.regionLabel || input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
       <div className="px-4 pt-2">
         <div className="grid rounded-[14px] bg-[#E9EEEE] p-1" style={{ gridTemplateColumns: `repeat(${courses.length}, minmax(0, 1fr))` }}>
           {courses.map((item, idx) => (
@@ -797,7 +828,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
         <PrimaryButton
           onClick={async () => {
-            const cityName = input.region.split(' ').at(-1)
+            const cityName = input.regionLabel || input.region.split(' ').at(-1)
             if (navigator.share) {
               try {
                 await navigator.share({ title: `${cityName} 여행 코스`, text: '예산 맞춤 AI 여행 코스 추천', url: shareUrl })

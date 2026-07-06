@@ -255,7 +255,7 @@ function transitText(axis, transit) {
   const base = byCar ? '자차 이동 기준' : '대중교통 이동 기준'
   const tail = {
     L: byCar ? '숙소를 중심으로 여유롭게 도는 동선이에요.' : '숙소·역 접근이 좋은 장소 위주로 묶었어요.',
-    F: byCar ? '해안도로를 따라 도는 동선이라 맛집 이동이 편해요.' : '역세권 맛집 위주라 도보·버스로 이동이 편해요.',
+    F: byCar ? '가까운 맛집과 카페를 묶어 이동 부담을 줄인 동선이에요.' : '역세권 맛집 위주라 도보·버스로 이동이 편해요.',
     A: byCar ? '근교 명소까지 넓게 도는 알찬 동선이에요.' : '버스 접근이 쉬운 명소 위주로 알차게 묶었어요.',
   }
   return `${base} · ${tail[axis]}`
@@ -403,9 +403,9 @@ function swapCheapestSameKind(basePlaces, pool) {
  * @returns {Array} 코스 3개 (메인 먼저, 서브 2개)
  */
 export function generateCourses(input, personality, tourPlaces = []) {
-  const { region, period, arrivalTime, transit, budget, fareIncluded, party = 1 } = input
+  const { region, regionLabel, period, arrivalTime, transit, budget, fareIncluded, party = 1 } = input
   const isDayTrip = personality.isDayTrip
-  const city = shortCity(region)
+  const city = shortCity(regionLabel || region)
   const { net, fare } = computeNetBudget(Number(budget) || 0, transit, fareIncluded)
   const band = budgetBand(net)
   const tier = budgetTier({ net, party, period, isDayTrip })

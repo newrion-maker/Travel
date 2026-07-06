@@ -164,7 +164,7 @@ function personalityWord(ansStr, period) {
 
 function buildShareMeta(url, origin) {
   const params = url.searchParams
-  const city = shortCityName(params.get('r') || '')
+  const city = shortCityName(params.get('rl') || params.get('r') || '')
   const period = params.get('p') || ''
   const man = Number(params.get('b')) ? Math.round(Number(params.get('b')) / 10000) : 0
   const word = personalityWord(params.get('ans') || '', period)
