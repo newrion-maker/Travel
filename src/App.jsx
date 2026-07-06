@@ -945,6 +945,7 @@ const BUDGET_TONE = {
 function BudgetMeter({ course }) {
   const [open, setOpen] = useState(false)
   const net = course.budgetNet || 0
+  const fare = course.budgetFare || 0
   const targets = course.budgetTargets || { stay: 0, food: 0, sight: 0 }
   const placesOf = (kind) => (course.places || []).filter((p) => p.kind === kind)
   const total = sumCostRange(course.places)
@@ -991,6 +992,11 @@ function BudgetMeter({ course }) {
             </>
           )}
         </p>
+        {fare > 0 && (
+          <p className="mt-1 text-[11px] font-semibold text-ink-3">
+            입력 예산 {formatKRW(net + fare)}원 중 교통비 ~{formatKRW(fare)}원({course.transitMode}) 제외
+          </p>
+        )}
         {state === 'over' && (
           <p className="mt-1.5 text-[11.5px] font-semibold leading-snug text-[#C0362F]">
             이 예산으론 이 지역이 빠듯해요 — {course.days?.length > 1 ? '예산을 올리거나 당일치기를 추천드려요.' : '예산을 조금 더 올려보세요.'}

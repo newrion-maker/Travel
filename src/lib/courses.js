@@ -383,7 +383,7 @@ export function generateCourses(input, personality, tourPlaces = []) {
   const { region, period, arrivalTime, transit, budget, fareIncluded, party = 1 } = input
   const isDayTrip = personality.isDayTrip
   const city = shortCity(region)
-  const { net } = computeNetBudget(Number(budget) || 0, transit, fareIncluded)
+  const { net, fare } = computeNetBudget(Number(budget) || 0, transit, fareIncluded)
   const band = budgetBand(net)
   const tier = budgetTier({ net, party, period, isDayTrip })
 
@@ -423,6 +423,8 @@ export function generateCourses(input, personality, tourPlaces = []) {
       budgetTier: tier,
       // 예산 미터용: 순예산과 성향비율로 계산한 카테고리별 목표(배분 A).
       budgetNet: net,
+      budgetFare: fare, // 교통비(예산에서 차감된 추정액). 0이면 미포함/별도계산.
+      transitMode: transit,
       budgetTargets: {
         stay: Math.round((net * ratios.stay) / 100),
         food: Math.round((net * ratios.food) / 100),
