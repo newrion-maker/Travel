@@ -640,8 +640,8 @@ function LoadingScreen() {
     <div className="flex min-h-[100dvh] flex-col items-center justify-center px-5 text-center sm:min-h-[860px]">
       <div className="relative flex h-[132px] w-[132px] items-center justify-center">
         <div className="absolute inset-0 animate-spin095 rounded-full border-[7px] border-[#E1EAEA] border-t-teal" />
-        <div className="flex h-[104px] w-[104px] animate-bob-fast items-center justify-center overflow-hidden rounded-[30px] bg-white shadow-card-soft">
-          <img src={splashTravel} alt="" className="h-[92px] w-[92px] object-contain" />
+        <div className="flex h-[104px] w-[104px] animate-bob-fast items-center justify-center rounded-full bg-white shadow-card-soft">
+          <img src={splashTravel} alt="" className="h-[104px] w-[104px] translate-y-1 object-contain" />
         </div>
       </div>
       <h2 className="mt-10 text-[22px] font-extrabold">코스를 짜는 중...</h2>
