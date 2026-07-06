@@ -309,11 +309,13 @@ function Splash({ onStart }) {
 function RegionPicker({ open, onClose, onSelect }) {
   const [sido, setSido] = useState(null)
   const [query, setQuery] = useState('')
+  const [showAll, setShowAll] = useState(false) // 전체 시/군/구 보기 토글
 
   useEffect(() => {
     if (open) {
       setSido(null)
       setQuery('')
+      setShowAll(false)
     }
   }, [open])
 
@@ -334,8 +336,25 @@ function RegionPicker({ open, onClose, onSelect }) {
         )
         .slice(0, 50)
     : []
-  // 큐레이션(인기 여행지)을 위로 정렬
+
+  // 시/도의 여행지(명소)를 펼친 목록. 각 명소 → 소속 구로 코스 생성.
+  const spotItems = []
+  if (sido) {
+    const seen = new Set()
+    const prefix = `${sido.name} `
+    // curated JSON에 적은 순서(인기순)대로 명소를 펼친다.
+    for (const key of Object.keys(CURATED)) {
+      if (!key.startsWith(prefix)) continue
+      const sgName = key.slice(prefix.length)
+      for (const spot of CURATED[key].keywords || []) {
+        if (seen.has(spot)) continue
+        seen.add(spot)
+        spotItems.push({ key: `${key}-${spot}`, spot, sg: sgName, region: key })
+      }
+    }
+  }
   const sigunguItems = sido ? sido.sigungu.map((sg) => toItem(sido.name, sg)).sort((a, b) => (b.label ? 1 : 0) - (a.label ? 1 : 0)) : []
+  const spotMode = sido && !showAll && spotItems.length > 0
 
   return (
     <div className="fixed inset-0 z-50">
@@ -344,13 +363,21 @@ function RegionPicker({ open, onClose, onSelect }) {
         <div className="animate-fade-slide flex max-h-[82vh] flex-col rounded-t-[24px] bg-white pb-6 shadow-2xl">
           <div className="flex items-center gap-2 px-4 pt-4">
             {sido && !q ? (
-              <button type="button" onClick={() => setSido(null)} className="h-9 w-9 rounded-full text-2xl font-bold text-ink-2" aria-label="뒤로">
+              <button
+                type="button"
+                onClick={() => {
+                  setSido(null)
+                  setShowAll(false)
+                }}
+                className="h-9 w-9 rounded-full text-2xl font-bold text-ink-2"
+                aria-label="뒤로"
+              >
                 ‹
               </button>
             ) : (
               <span className="h-9 w-9" />
             )}
-            <h3 className="flex-1 text-center text-base font-extrabold">{sido && !q ? sido.name : '지역 선택'}</h3>
+            <h3 className="flex-1 text-center text-base font-extrabold">{sido && !q ? `${sido.name} 여행지` : '지역 선택'}</h3>
             <button type="button" onClick={onClose} className="h-9 w-9 rounded-full text-lg font-bold text-ink-3" aria-label="닫기">
               ✕
             </button>
@@ -364,7 +391,11 @@ function RegionPicker({ open, onClose, onSelect }) {
               className="h-11 w-full rounded-field border border-line bg-screen px-4 text-sm font-bold outline-none focus:border-teal"
             />
           </div>
-          {sido && !q && <p className="px-4 pt-2 text-[11.5px] font-semibold text-ink-3">가고 싶은 관광지로 골라보세요 (예: 경포대·성심당)</p>}
+          {sido && !q && (
+            <p className="px-4 pt-2 text-[11.5px] font-semibold text-ink-3">
+              {spotMode ? `${sido.name}에서 가고 싶은 여행지를 골라보세요` : '시/군/구를 직접 선택하세요'}
+            </p>
+          )}
           <div className="mt-3 flex-1 overflow-y-auto px-4">
             {q ? (
               searchResults.length ? (
@@ -387,8 +418,34 @@ function RegionPicker({ open, onClose, onSelect }) {
               ) : (
                 <p className="py-10 text-center text-sm font-semibold text-ink-3">검색 결과가 없어요</p>
               )
+            ) : spotMode ? (
+              <div className="grid gap-1.5 pb-2">
+                {spotItems.map((it) => (
+                  <button
+                    key={it.key}
+                    type="button"
+                    onClick={() => onSelect(it.region)}
+                    className="flex items-center gap-2 rounded-[12px] border border-line bg-white px-4 py-2.5 text-left hover:bg-screen"
+                  >
+                    <p className="min-w-0 flex-1 truncate text-[15px] font-bold">{it.spot}</p>
+                    <span className="shrink-0 text-[11px] font-semibold text-ink-3">{it.sg}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  className="mt-1 w-full rounded-[12px] border border-dashed border-line py-2.5 text-[12.5px] font-bold text-ink-2 hover:bg-screen"
+                >
+                  전체 시/군/구 보기
+                </button>
+              </div>
             ) : sido ? (
               <div className="grid gap-1.5 pb-2">
+                {spotItems.length > 0 && (
+                  <button type="button" onClick={() => setShowAll(false)} className="mb-1 self-start text-[12px] font-extrabold text-teal-deep">
+                    ‹ 여행지로 보기
+                  </button>
+                )}
                 {sigunguItems.map((it) => (
                   <button
                     key={it.key}
@@ -410,7 +467,10 @@ function RegionPicker({ open, onClose, onSelect }) {
                   <button
                     key={s.code}
                     type="button"
-                    onClick={() => setSido(s)}
+                    onClick={() => {
+                      setSido(s)
+                      setShowAll(false)
+                    }}
                     className="flex h-12 items-center justify-center rounded-[12px] border border-line bg-white text-[15px] font-extrabold hover:bg-teal-tint"
                   >
                     {s.name}
