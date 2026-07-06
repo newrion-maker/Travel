@@ -330,6 +330,23 @@ function orderFirstDayPlaces(places, arrivalTime) {
   })
 }
 
+// 각 장소에 일정표용 역할(점심/카페/숙박/관광 등)을 부여한다. 정확한 시각이 아니라 '역할·끼니' 기준.
+function assignDayRoles(dayPlaces, day, arrivalTime) {
+  const meals = day === 1 ? (arrivalTime === '저녁' ? ['저녁'] : ['점심', '저녁']) : ['아침', '점심', '저녁']
+  let mealIdx = 0
+  const isCafe = (p) => p.icon === '카' || /카페|커피|디저트|베이커리|빵집|젤라또|아이스크림|로스터리|방앗간/u.test(`${p.name} ${p.tag || ''} ${p.kakaoCategory || ''}`)
+  const lastNonStayIdx = dayPlaces.reduce((last, p, i) => (p.kind !== 'stay' ? i : last), -1)
+  return dayPlaces.map((p, i) => {
+    let role
+    if (p.kind === 'stay') role = '숙박'
+    else if (p.kind === 'food' && isCafe(p)) role = i === lastNonStayIdx ? '마무리 카페' : '카페'
+    else if (p.kind === 'food') role = meals[Math.min(mealIdx++, meals.length - 1)]
+    else if (p.icon === '체') role = '체험'
+    else role = i === 0 && day > 1 ? '오전 관광' : '관광'
+    return { ...p, role }
+  })
+}
+
 function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, candidatePlaces = [], isDayTrip, allowSyntheticPlaces = true }) {
   const totalDays = tripDays(period)
   const targets = [...DAY_PLACE_TARGETS[totalDays]]
@@ -366,7 +383,7 @@ function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, can
       day,
       title: `${day}일차`,
       summary: day === 1 ? firstDaySummary(arrivalTime, isDayTrip) : day === totalDays ? '마무리 동선' : isStayNight ? `${day}박 포함 동선` : '핵심 방문 동선',
-      places: dayPlaces,
+      places: assignDayRoles(dayPlaces, day, arrivalTime),
     })
   }
 

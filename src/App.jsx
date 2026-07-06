@@ -702,7 +702,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const courseOverrides = overrides[course.key] || {}
   const applyOverride = (place) => {
     const rep = place.slotId ? courseOverrides[place.slotId] : null
-    return rep ? { ...rep, slotId: place.slotId } : place
+    return rep ? { ...rep, slotId: place.slotId, role: place.role } : place
   }
   const effectiveDays = dayPlans.map((day) => ({ ...day, places: day.places.map(applyOverride).filter(isKakaoVerifiedPlace) }))
   const effectivePlaces = effectiveDays.flatMap((day) => day.places)
@@ -1338,10 +1338,12 @@ function PlaceRow({ place, index, onSwap }) {
   const subDetail = place.kakaoPhone || place.kakaoCategory || ''
   return (
     <div className="flex items-center gap-2.5 border-b border-line-hair2 py-2.5 last:border-0">
-      <span className="w-4 text-center text-[13px] font-extrabold text-ink-muted">{index}</span>
       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sq text-[13px] font-extrabold ${kindTone}`}>{place.icon}</span>
       <a href={place.mapUrl} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
-        <p className="truncate text-[14.5px] font-extrabold">{place.name}</p>
+        <div className="flex items-center gap-1.5">
+          {place.role && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${kindTone}`}>{place.role}</span>}
+          <p className="truncate text-[14.5px] font-extrabold">{place.name}</p>
+        </div>
         <p className="truncate text-[12px] font-semibold text-ink-3">{detail}</p>
         {subDetail && <p className="truncate text-[11px] font-semibold text-ink-muted">{subDetail}</p>}
       </a>
