@@ -763,7 +763,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           <h2 className="mt-4 text-[19px] font-extrabold">{course.title}</h2>
           <div className="mt-2 flex items-start gap-1.5">
             <span className="mt-0.5 shrink-0 rounded-full bg-[#EAF2F1] px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">AI</span>
-            <p className="text-[12px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan?.summary || '예산에 맞춰 코스를 정리했어요.'}</p>
+            <p className="min-h-[2.6em] text-[12px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan?.summary || '예산에 맞춰 코스를 정리했어요.'}</p>
           </div>
           <RatioBar ratios={course.ratios} className="mt-4" />
           <div className="mt-1.5 flex gap-2.5 text-[10.5px] font-semibold text-ink-3">

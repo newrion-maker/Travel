@@ -117,9 +117,10 @@ function budgetTableFor({ net, axis, tier, isDayTrip }) {
 
 function aiSummaryFor({ city, period, tier, axis, net }) {
   const amount = Math.round(net / 10000)
-  const pace = tier === 'low' ? '알뜰하게' : tier === 'high' ? '여유롭게' : '무리 없이'
-  const focus = axis === 'F' ? '식사와 카페 선택에 힘을 주고' : axis === 'L' ? '숙소 컨디션을 우선으로 보고' : '관광 동선을 넉넉하게 잡고'
-  return `${city} ${period} 기준 ${amount}만원대 예산이면 ${pace} 다녀올 수 있어요. ${focus}, 실제 장소는 예산대에 맞춰 검증된 후보 위주로 골랐습니다.`
+  const paceWord = tier === 'low' ? '알뜰' : tier === 'high' ? '여유로운' : '합리적인'
+  const focus = axis === 'F' ? '맛집·카페 중심' : axis === 'L' ? '숙소 컨디션 중심' : '관광·체험 중심'
+  // OpenAI 실시간 요약과 길이를 맞춰 화면 진입 시 문구가 줄어드는 현상 방지 (짧게 1~2문장).
+  return `${city} ${period}, 약 ${amount}만원대 ${paceWord} 여행. ${focus}으로 예산에 맞춰 골랐어요.`
 }
 
 function strategyFor({ axis, tier, isDayTrip }) {
