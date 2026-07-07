@@ -117,6 +117,26 @@ function compactCourseForAi(course) {
   }
 }
 
+function buildCourseShareMessage({ input, course, days, shareUrl }) {
+  const cityName = input.regionLabel || input.region.split(' ').at(-1)
+  const title = `${cityName} ${input.period} ${course.label} 코스`
+  const lines = [title, '', `예산: ${course.budget}`]
+  if (course.aiPlan?.summary) lines.push(course.aiPlan.summary)
+
+  days.forEach((day) => {
+    const places = day.places.slice(0, 5)
+    if (!places.length) return
+    lines.push('', day.title)
+    places.forEach((place) => {
+      const role = place.role ? `${place.role} ` : ''
+      lines.push(`${role}${place.name}`)
+    })
+  })
+
+  lines.push('', '내 코스 보기', shareUrl)
+  return lines.join('\n')
+}
+
 function isKakaoVerifiedPlace(place) {
   return Boolean(place?.kakaoSupported !== false && place?.kakaoPlaceId && /^https?:\/\/place\.map\.kakao\.com\//u.test(place.mapUrl || ''))
 }
@@ -850,16 +870,17 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         <PrimaryButton
           onClick={async () => {
             const cityName = input.regionLabel || input.region.split(' ').at(-1)
+            const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl })
             if (navigator.share) {
               try {
-                await navigator.share({ title: `${cityName} 여행 코스`, text: '예산 맞춤 AI 여행 코스 추천', url: shareUrl })
+                await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: shareUrl })
                 return
               } catch (err) {
                 if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소
               }
             }
-            const copied = await copyTextToClipboard(shareUrl)
-            setShareStatus(copied ? '공유 링크를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
+            const copied = await copyTextToClipboard(shareMessage)
+            setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
             window.setTimeout(() => setShareStatus(''), 1800)
           }}
         >
