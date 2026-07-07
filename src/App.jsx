@@ -167,6 +167,7 @@ export default function App() {
   const [tourPlaces, setTourPlaces] = useState([])
   const [aiPlans, setAiPlans] = useState({})
   const [aiPlanSource, setAiPlanSource] = useState('fallback')
+  const aiReqSigRef = useRef('')
 
   const personality = useMemo(() => computePersonality(answers, input.period), [answers, input.period])
   const courses = useMemo(() => generateCourses(input, personality, tourPlaces), [input, personality, tourPlaces])
@@ -174,6 +175,9 @@ export default function App() {
   const currentQuestion = QUESTIONS[questionIndex]
 
   useEffect(() => {
+    // 지역이 바뀌면 이전 지역의 AI 플랜은 무효 — 새 플랜을 받기 전까지 규칙 코스로 되돌린다.
+    setAiPlans({})
+    aiReqSigRef.current = ''
     if (!hasTourApiKey || !input.region) {
       setTourPlaces([])
       return
@@ -197,8 +201,20 @@ export default function App() {
     if (!['loading', 'courses'].includes(screen)) return
 
     let alive = true
-    setAiPlanSource('loading')
+    let applied = false
     const verifiedPlaces = (tourPlaces || []).filter(isKakaoVerifiedPlace)
+    const finishLoading = () => setScreen((s) => (s === 'loading' ? 'courses' : s))
+
+    // 화면 전환 등으로 effect가 같은 조건에서 다시 실행될 때 중복 AI 호출을 막는다.
+    // (완료 전 취소되면 아래 cleanup에서 서명을 해제해 재요청을 허용한다 — StrictMode 이중 마운트 대응)
+    const reqSig = `${input.region}|${input.budget}|${input.period}|${input.arrivalTime}|${personality?.top || ''}|${verifiedPlaces.length}`
+    if (aiReqSigRef.current === reqSig) {
+      finishLoading()
+      return undefined
+    }
+    aiReqSigRef.current = reqSig
+
+    setAiPlanSource('loading')
     const courseMetas = courses.map((c) => ({
       key: c.key,
       label: c.label,
@@ -207,7 +223,6 @@ export default function App() {
       days: c.days?.length || 1,
       itemsPerDay: (c.days || []).map((d) => d.places.length),
     }))
-    const finishLoading = () => setScreen((s) => (s === 'loading' ? 'courses' : s))
 
     fetch('/api/ai-plan', {
       method: 'POST',
@@ -217,16 +232,24 @@ export default function App() {
       .then((response) => (response.ok ? response.json() : { plans: [] }))
       .then((data) => {
         if (!alive) return
+        applied = true
         const next = {}
         for (const plan of data.plans || []) {
           if (plan.key) next[plan.key] = plan
         }
-        setAiPlans(next)
-        setAiPlanSource(data.source === 'openai' && Object.keys(next).length ? 'openai' : 'fallback')
+        // 화면 전환(loading→courses)으로 effect가 재실행되며 나가는 2차 호출이
+        // 일시적 빈 결과(fallback)를 주더라도, 이미 받은 AI 플랜을 덮어쓰지 않는다.
+        if (Object.keys(next).length) {
+          setAiPlans(next)
+          setAiPlanSource(data.source === 'openai' ? 'openai' : 'fallback')
+        } else {
+          setAiPlanSource((prev) => (prev === 'openai' ? 'openai' : 'fallback'))
+        }
         finishLoading()
       })
       .catch(() => {
         if (alive) {
+          applied = true
           setAiPlans({})
           setAiPlanSource('fallback')
           finishLoading()
@@ -235,6 +258,8 @@ export default function App() {
 
     return () => {
       alive = false
+      // 이 실행이 결과를 반영하기 전에 취소됐다면 서명을 풀어 다음 실행이 다시 요청하게 한다.
+      if (!applied) aiReqSigRef.current = ''
     }
   }, [screen, input, personality, courses, tourPlaces])
 

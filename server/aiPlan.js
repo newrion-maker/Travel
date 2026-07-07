@@ -130,8 +130,8 @@ function normalizeRoleForArrival(role, kind, day, arrivalTime) {
 function roleOrder(place) {
   const role = String(place.role || '')
   if (place.kind === 'stay' || role.includes('숙박')) return 90
-  if (role.includes('오전')) return 10
-  if (role.includes('아침')) return 20
+  if (role.includes('아침')) return 10
+  if (role.includes('오전')) return 20
   if (role.includes('점심')) return 30
   if (role === '카페') return 40
   if (role.includes('관광') || role.includes('체험')) return 50
