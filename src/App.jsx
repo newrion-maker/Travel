@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { QUESTIONS } from './data/questions.js'
 import regionData from './data/regions.json'
 import curatedData from './data/curated-regions.json'
-import { formatKRW, sumCostRange, budgetState, formatPlaceCost } from './lib/budget.js'
+import { formatKRW, sumCostRange, budgetState, formatPlaceCost, computeNetBudget } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
@@ -557,6 +557,7 @@ function RegionPicker({ open, onClose, onSelect }) {
 
 function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   const [regionOpen, setRegionOpen] = useState(false)
+  const farePreview = computeNetBudget(Number(input.budget) || 0, input.transit, input.fareIncluded)
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
@@ -621,6 +622,11 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
             variant="coral"
             onChange={(v) => setInput({ ...input, fareIncluded: v === '예산에 포함' })}
           />
+          <p className="mt-2 rounded-[12px] bg-white px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-ink-3">
+            {input.fareIncluded
+              ? `입력 예산에서 ${input.transit} 교통비 약 ${formatKRW(farePreview.fare)}원을 빼고, 코스 예산은 약 ${formatKRW(farePreview.net)}원으로 잡아요.`
+              : `교통비는 따로 계산하고, 입력한 ${formatKRW(Number(input.budget) || 0)}원을 전부 코스 예산으로 잡아요.`}
+          </p>
         </Field>
       </div>
       <BottomBar>
