@@ -936,9 +936,22 @@ function HomeButton({ onClick, className = '' }) {
       onClick={onClick}
       aria-label="메인화면으로 이동"
       title="메인화면으로"
-      className={`flex h-9 w-9 items-center justify-center rounded-full bg-white text-[17px] font-extrabold text-ink-2 shadow-card-soft ${className}`}
+      className={`flex h-9 w-9 items-center justify-center text-[#9AA5B1] ${className}`}
     >
-      ⌂
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-8 w-8"
+        aria-hidden="true"
+      >
+        <path d="M3.4 11.2 12 4 20.6 11.2" />
+        <path d="M5.4 9.7 V19.4 H18.6 V9.7" />
+        <path d="M9.6 19.4 V14.2 Q9.6 12.4 12 12.4 Q14.4 12.4 14.4 14.2 V19.4" />
+      </svg>
     </button>
   )
 }
