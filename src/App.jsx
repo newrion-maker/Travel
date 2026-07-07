@@ -319,13 +319,26 @@ function PhoneShell({ children, tone }) {
 
 function Splash({ onStart }) {
   return (
-    <div className="flex min-h-[100dvh] flex-col px-6 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[64px] sm:min-h-[860px]">
-      <div className="pointer-events-none absolute -left-10 top-24 h-44 w-44 rounded-full bg-white/10" />
-      <div className="pointer-events-none absolute -right-12 top-36 h-32 w-32 rounded-full bg-coral/35" />
-      <div className="mx-auto rounded-full bg-white/20 px-4 py-2 text-[12.5px] font-bold">AI 여행 코스 추천</div>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <h1 className="whitespace-pre-line text-[31px] font-extrabold leading-tight">예산만 정하면{'\n'}코스는 똑똑하게</h1>
-        <p className="mt-5 text-[15px] leading-relaxed text-white/85">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[linear-gradient(180deg,#19bdb7_0%,#33cbc6_44%,#14b5ad_100%)] px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:min-h-[860px]">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[222px] h-[120px] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.10)_48%,rgba(5,129,139,0.18)_49%,rgba(5,129,139,0.08)_100%)]" />
+      <div className="pointer-events-none absolute -left-12 top-[104px] h-12 w-28 rounded-full bg-white/45 blur-[2px]" />
+      <div className="pointer-events-none absolute -left-4 top-[88px] h-10 w-10 rounded-full bg-white/55 blur-[1px]" />
+      <div className="pointer-events-none absolute left-5 top-[101px] h-8 w-8 rounded-full bg-white/40 blur-[1px]" />
+      <div className="pointer-events-none absolute -right-10 top-[430px] h-12 w-28 rounded-full bg-white/38 blur-[2px]" />
+      <div className="pointer-events-none absolute right-14 top-[412px] h-9 w-9 rounded-full bg-white/42 blur-[1px]" />
+      <div className="pointer-events-none absolute -left-12 bottom-[192px] h-12 w-32 rounded-full bg-white/35 blur-[2px]" />
+      <svg className="pointer-events-none absolute right-8 top-[126px] h-12 w-20 text-white/75" viewBox="0 0 80 48" fill="none" aria-hidden="true">
+        <path d="M12 17c7-7 13-7 20 0" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M44 28c6-6 12-6 18 0" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+      </svg>
+      <div className="relative z-10 mx-auto rounded-full bg-white/18 px-5 py-2.5 text-[13px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-sm">
+        AI 여행 코스 추천
+      </div>
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center">
+        <h1 className="whitespace-pre-line text-[32px] font-extrabold leading-[1.33] drop-shadow-[0_2px_10px_rgba(0,96,98,0.14)]">
+          예산만 정하면{'\n'}코스는 똑똑하게
+        </h1>
+        <p className="mt-6 text-[16px] font-semibold leading-[1.75] text-white/90">
           성향 테스트로 나에게 맞는
           <br />
           여름 여행 코스를 짜드려요
@@ -333,13 +346,13 @@ function Splash({ onStart }) {
         <img
           src={splashTravel}
           alt=""
-          className="mt-10 h-[210px] w-[210px] object-contain"
+          className="mt-12 h-[210px] w-[210px] object-contain drop-shadow-[0_18px_26px_rgba(0,109,111,0.16)]"
         />
       </div>
-      <button onClick={onStart} className="h-14 rounded-btn bg-white font-extrabold text-teal-deep shadow-cta-white">
+      <button onClick={onStart} className="relative z-10 h-16 rounded-[17px] bg-white font-extrabold text-teal-deep shadow-[0_12px_26px_rgba(0,102,108,0.18)]">
         시작하기
       </button>
-      <p className="mt-4 text-center text-xs font-semibold text-white/75">성향 테스트 미니앱 · 여름 챌린지</p>
+      <p className="relative z-10 mt-5 text-center text-xs font-semibold text-white/78">성향 테스트 미니앱 · 여름 챌린지</p>
     </div>
   )
 }
