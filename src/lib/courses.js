@@ -2,7 +2,7 @@
 //
 // ⚠️ 실제 제품에서는 이 함수가 아래를 수행한다 (README "교체할 자리"):
 //   1. TourAPI areaBasedList 프리페치 결과(장소 목록)
-//   2. computeNetBudget()의 순예산 + 여행기간 + 인원수 + L/F/A 비율 3세트 + 이동수단 제약
+//   2. 현지 사용 예산 + 여행기간 + 인원수 + L/F/A 비율 3세트 + 이동수단 제약
 //   을 OpenAI API에 구조화 프롬프트로 전달 → JSON 코스 3개 파싱.
 //
 // 여기서는 API 키 없이 동작하도록 동일한 "출력 스키마"를 mock 데이터로 생성한다.
@@ -416,15 +416,15 @@ function swapCheapestSameKind(basePlaces, pool) {
 }
 
 /**
- * @param {object} input  FlowContext input (region, period, transit, budget, fareIncluded ...)
+ * @param {object} input  FlowContext input (region, period, transit, budget ...)
  * @param {object} personality  computePersonality() 결과
  * @returns {Array} 코스 3개 (메인 먼저, 서브 2개)
  */
 export function generateCourses(input, personality, tourPlaces = []) {
-  const { region, regionLabel, period, arrivalTime, transit, budget, fareIncluded, party = 1 } = input
+  const { region, regionLabel, period, arrivalTime, transit, budget, party = 1 } = input
   const isDayTrip = personality.isDayTrip
   const city = shortCity(regionLabel || region)
-  const { net, fare } = computeNetBudget(Number(budget) || 0, transit, fareIncluded)
+  const { net } = computeNetBudget(Number(budget) || 0)
   const band = budgetBand(net)
   const tier = budgetTier({ net, party, period, isDayTrip })
 
@@ -483,7 +483,6 @@ export function generateCourses(input, personality, tourPlaces = []) {
       budgetTier: tier,
       // 예산 미터용: 순예산과 성향비율로 계산한 카테고리별 목표(배분 A).
       budgetNet: net,
-      budgetFare: fare, // 교통비(예산에서 차감된 추정액). 0이면 미포함/별도계산.
       transitMode: transit,
       budgetTargets: {
         stay: Math.round((net * ratios.stay) / 100),

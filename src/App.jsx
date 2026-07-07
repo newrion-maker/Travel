@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { QUESTIONS } from './data/questions.js'
 import regionData from './data/regions.json'
 import curatedData from './data/curated-regions.json'
-import { formatKRW, sumCostRange, budgetState, formatPlaceCost, computeNetBudget } from './lib/budget.js'
+import { formatKRW, sumCostRange, budgetState, formatPlaceCost } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
@@ -19,7 +19,6 @@ const initialInput = {
   arrivalTime: '오후',
   budget: 150000,
   transit: '자차',
-  fareIncluded: true,
 }
 
 const periods = ['당일치기', '1박2일', '2박3일']
@@ -55,7 +54,6 @@ function readSharedState() {
     arrivalTime: params.get('arr') || initialInput.arrivalTime,
     budget: parsePositiveNumber(params.get('b'), initialInput.budget),
     transit: params.get('t') || initialInput.transit,
-    fareIncluded: params.get('fi') !== '0',
   }
   const encodedAnswers = params.get('ans') || ''
   const nextAnswers = {}
@@ -83,7 +81,6 @@ function buildShareUrl({ input, answers, active }) {
   params.set('arr', input.arrivalTime)
   params.set('b', String(input.budget))
   params.set('t', input.transit)
-  params.set('fi', input.fareIncluded ? '1' : '0')
   params.set('ans', QUESTIONS.map((question) => answers[question.id] || '').join(''))
   params.set('c', String(active))
   url.search = params.toString()
@@ -557,7 +554,6 @@ function RegionPicker({ open, onClose, onSelect }) {
 
 function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   const [regionOpen, setRegionOpen] = useState(false)
-  const farePreview = computeNetBudget(Number(input.budget) || 0, input.transit, input.fareIncluded)
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
@@ -610,23 +606,10 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
             />
             <span className="text-lg font-bold text-ink-2">원</span>
           </div>
-          <p className="mt-2 text-[12.5px] font-medium text-ink-3">전체 인원 합산 금액을 입력해주세요.</p>
+          <p className="mt-2 text-[12.5px] font-medium text-ink-3">교통비를 제외하고, 여행지에서 쓸 전체 인원 합산 금액을 입력해주세요.</p>
         </Field>
         <Field label="이동수단">
           <ChipGroup value={input.transit} options={transits} onChange={(transit) => setInput({ ...input, transit })} />
-        </Field>
-        <Field label="교통비 포함 여부">
-          <ChipGroup
-            value={input.fareIncluded ? '예산에 포함' : '별도로 계산'}
-            options={['예산에 포함', '별도로 계산']}
-            variant="coral"
-            onChange={(v) => setInput({ ...input, fareIncluded: v === '예산에 포함' })}
-          />
-          <p className="mt-2 rounded-[12px] bg-white px-3 py-2 text-[12.5px] font-semibold leading-relaxed text-ink-3">
-            {input.fareIncluded
-              ? `입력 예산에서 ${input.transit} 교통비 약 ${formatKRW(farePreview.fare)}원을 빼고, 코스 예산은 약 ${formatKRW(farePreview.net)}원으로 잡아요.`
-              : `교통비는 따로 계산하고, 입력한 ${formatKRW(Number(input.budget) || 0)}원을 전부 코스 예산으로 잡아요.`}
-          </p>
         </Field>
       </div>
       <BottomBar>
@@ -1038,7 +1021,6 @@ const BUDGET_TONE = {
 function BudgetMeter({ course }) {
   const [open, setOpen] = useState(false)
   const net = course.budgetNet || 0
-  const fare = course.budgetFare || 0
   const targets = course.budgetTargets || { stay: 0, food: 0, sight: 0 }
   const placesOf = (kind) => (course.places || []).filter((p) => p.kind === kind)
   const total = sumCostRange(course.places)
@@ -1085,11 +1067,6 @@ function BudgetMeter({ course }) {
             </>
           )}
         </p>
-        {fare > 0 && (
-          <p className="mt-1 text-[11px] font-semibold text-ink-3">
-            입력 예산 {formatKRW(net + fare)}원 중 교통비 ~{formatKRW(fare)}원({course.transitMode}) 제외
-          </p>
-        )}
         {state === 'over' && (
           <p className="mt-1.5 text-[11.5px] font-semibold leading-snug text-[#C0362F]">
             이 예산으론 이 지역이 빠듯해요 — {course.days?.length > 1 ? '예산을 올리거나 당일치기를 추천드려요.' : '예산을 조금 더 올려보세요.'}
