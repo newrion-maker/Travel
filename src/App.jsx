@@ -18,12 +18,10 @@ const initialInput = {
   party: 2,
   arrivalTime: '오후',
   budget: 150000,
-  transit: '자차',
 }
 
 const periods = ['당일치기', '1박2일', '2박3일']
 const arrivalTimes = ['오전', '오후', '저녁']
-const transits = ['자차', '대중교통']
 const accentClass = {
   teal: { text: 'text-teal-deep', bg: 'bg-teal-tint', chip: 'bg-teal-tint text-teal-deep' },
   coral: { text: 'text-coral-deep', bg: 'bg-coral-tint', chip: 'bg-coral-tint text-coral-deep' },
@@ -53,7 +51,6 @@ function readSharedState() {
     party: parsePositiveNumber(params.get('party'), initialInput.party),
     arrivalTime: params.get('arr') || initialInput.arrivalTime,
     budget: parsePositiveNumber(params.get('b'), initialInput.budget),
-    transit: params.get('t') || initialInput.transit,
   }
   const encodedAnswers = params.get('ans') || ''
   const nextAnswers = {}
@@ -80,7 +77,6 @@ function buildShareUrl({ input, answers, active }) {
   params.set('party', String(input.party))
   params.set('arr', input.arrivalTime)
   params.set('b', String(input.budget))
-  params.set('t', input.transit)
   params.set('ans', QUESTIONS.map((question) => answers[question.id] || '').join(''))
   params.set('c', String(active))
   url.search = params.toString()
@@ -608,9 +604,6 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           </div>
           <p className="mt-2 text-[12.5px] font-medium text-ink-3">교통비를 제외하고, 여행지에서 쓸 전체 인원 합산 금액을 입력해주세요.</p>
         </Field>
-        <Field label="이동수단">
-          <ChipGroup value={input.transit} options={transits} onChange={(transit) => setInput({ ...input, transit })} />
-        </Field>
       </div>
       <BottomBar>
         <PrimaryButton disabled={!canContinue} onClick={onNext}>
@@ -841,9 +834,6 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
             </div>
           </div>
           <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-4" />
-          <div className="mt-4 rounded-[13px] bg-screen px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-ink-2">
-            <span className="text-teal-deep">이동 안내</span> · {course.transit}
-          </div>
         </article>
       </div>
       <BottomBar>

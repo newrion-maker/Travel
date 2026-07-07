@@ -2,12 +2,12 @@
 //
 // ⚠️ 실제 제품에서는 이 함수가 아래를 수행한다 (README "교체할 자리"):
 //   1. TourAPI areaBasedList 프리페치 결과(장소 목록)
-//   2. 현지 사용 예산 + 여행기간 + 인원수 + L/F/A 비율 3세트 + 이동수단 제약
+//   2. 현지 사용 예산 + 여행기간 + 인원수 + L/F/A 비율 3세트
 //   을 OpenAI API에 구조화 프롬프트로 전달 → JSON 코스 3개 파싱.
 //
 // 여기서는 API 키 없이 동작하도록 동일한 "출력 스키마"를 mock 데이터로 생성한다.
 // courses[] 스키마는 README State Management 절을 바탕으로 하되, 기간별 표시를 위해 days[]를 추가한다.
-//   { key, label, accent, title, budget, ratios:{stay,food,sight}, transit, places:[...], days:[...] }
+//   { key, label, accent, title, budget, ratios:{stay,food,sight}, places:[...], days:[...] }
 
 import { computeNetBudget, budgetBand, placeCostRange, sumCostRange, budgetState } from './budget.js'
 import { LABELS, LABEL_ACCENT } from './personality.js'
@@ -250,18 +250,6 @@ const FIRST_DAY_TARGET_BY_ARRIVAL = {
   저녁: 2,
 }
 
-// 이동수단 제약(§4.2) 반영 동선 안내 문구
-function transitText(axis, transit) {
-  const byCar = transit === '자차'
-  const base = byCar ? '자차 이동 기준' : '대중교통 이동 기준'
-  const tail = {
-    L: byCar ? '숙소를 중심으로 여유롭게 도는 동선이에요.' : '숙소·역 접근이 좋은 장소 위주로 묶었어요.',
-    F: byCar ? '가까운 맛집과 카페를 묶어 이동 부담을 줄인 동선이에요.' : '역세권 맛집 위주라 도보·버스로 이동이 편해요.',
-    A: byCar ? '근교 명소까지 넓게 도는 알찬 동선이에요.' : '버스 접근이 쉬운 명소 위주로 알차게 묶었어요.',
-  }
-  return `${base} · ${tail[axis]}`
-}
-
 // 여행기간(당일치기) 반영: stay 제거 후 food/sight 재정규화 (§4.3)
 function ratioForPeriod(axis, isDayTrip) {
   const p = RATIO_PROFILE[axis]
@@ -416,12 +404,12 @@ function swapCheapestSameKind(basePlaces, pool) {
 }
 
 /**
- * @param {object} input  FlowContext input (region, period, transit, budget ...)
+ * @param {object} input  FlowContext input (region, period, budget ...)
  * @param {object} personality  computePersonality() 결과
  * @returns {Array} 코스 3개 (메인 먼저, 서브 2개)
  */
 export function generateCourses(input, personality, tourPlaces = []) {
-  const { region, regionLabel, period, arrivalTime, transit, budget, party = 1 } = input
+  const { region, regionLabel, period, arrivalTime, budget, party = 1 } = input
   const isDayTrip = personality.isDayTrip
   const city = shortCity(regionLabel || region)
   const { net } = computeNetBudget(Number(budget) || 0)
@@ -478,12 +466,10 @@ export function generateCourses(input, personality, tourPlaces = []) {
       title: `${city} ${AXIS_WORD[axis]} 코스`,
       budget: band,
       ratios,
-      transit: transitText(axis, transit),
       source: hasApiPlaces ? 'tourApi' : 'sample',
       budgetTier: tier,
       // 예산 미터용: 순예산과 성향비율로 계산한 카테고리별 목표(배분 A).
       budgetNet: net,
-      transitMode: transit,
       budgetTargets: {
         stay: Math.round((net * ratios.stay) / 100),
         food: Math.round((net * ratios.food) / 100),

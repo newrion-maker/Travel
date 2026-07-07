@@ -230,7 +230,7 @@ export async function generateAiPlans({ input, personality, places, courses } = 
   const candidates = buildCandidates(verified)
   const arrivalTime = input?.arrivalTime || '오후'
   const payload = {
-    input: { period: input?.period, arrivalTime, transit: input?.transit, party: input?.party, budget: input?.budget },
+    input: { period: input?.period, arrivalTime, party: input?.party, budget: input?.budget },
     personality: personality ? { top: personality.top, label: personality.label, ratios: personality.ratios, isDayTrip: personality.isDayTrip } : null,
     candidates,
     courses: metas.map((m) => ({ key: m.key, label: m.label, ratios: m.ratios, budgetNet: m.budgetNet, days: m.days, itemsPerDay: m.itemsPerDay })),
