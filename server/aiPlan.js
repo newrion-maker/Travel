@@ -77,7 +77,9 @@ Hard rules:
 - Keep each course's estimated total (sum of chosen costs) within its budgetNet. When budget is tight, prefer cheaper candidates.
 - Respect each course's ratios (stay/food/sight %) as spending emphasis.
 - Overnight trips (days>1): include exactly ONE stay per night = every day except the last day. Day trips have no stay.
-- Order each day naturally: meal -> sight -> cafe, stay last.
+- Order each day strictly by time flow: 오전 관광 -> 아침 -> 점심 -> 카페 -> 관광/체험 -> 저녁 -> 마무리 카페 -> 숙박.
+- Never place morning/lunch/afternoon roles after 저녁 or 숙박. 숙박 is always the last item of that day.
+- For day 1, respect arrivalTime: if arrivalTime is 오후, do not use 아침 or 오전 관광; if arrivalTime is 저녁, focus on 저녁 and 숙박 only.
 - Assign a Korean role to each item from: 점심, 저녁, 아침, 카페, 마무리 카페, 관광, 오전 관광, 체험, 숙박.
 - Aim for the given itemsPerDay counts per day.
 Also write a short Korean summary (<60 chars) and 2-3 short Korean strategy tips per course.
@@ -107,6 +109,53 @@ function daySummary(day, totalDays, arrivalTime) {
   return day === totalDays ? '마무리 동선' : '핵심 방문 동선'
 }
 
+function normalizeRoleForArrival(role, kind, day, arrivalTime) {
+  if (kind === 'stay') return '숙박'
+  let normalized = String(role || '').trim()
+
+  if (day === 1 && arrivalTime === '오후') {
+    if (normalized.includes('오전')) normalized = '관광'
+    if (normalized === '아침') normalized = kind === 'food' ? '점심' : '관광'
+  }
+
+  if (day === 1 && arrivalTime === '저녁') {
+    if (normalized === '아침' || normalized === '점심') normalized = '저녁'
+    if (normalized.includes('오전')) normalized = '관광'
+    if (normalized === '카페') normalized = '마무리 카페'
+  }
+
+  return normalized || (kind === 'food' ? '점심' : '관광')
+}
+
+function roleOrder(place) {
+  const role = String(place.role || '')
+  if (place.kind === 'stay' || role.includes('숙박')) return 90
+  if (role.includes('오전')) return 10
+  if (role.includes('아침')) return 20
+  if (role.includes('점심')) return 30
+  if (role === '카페') return 40
+  if (role.includes('관광') || role.includes('체험')) return 50
+  if (role.includes('저녁')) return 60
+  if (role.includes('마무리') || role.includes('카페')) return 70
+  if (place.kind === 'food') return 35
+  if (place.kind === 'sight') return 50
+  return 80
+}
+
+function sortDayPlacesByTimeFlow(dayPlaces, day, arrivalTime) {
+  return dayPlaces
+    .map((place, index) => ({
+      ...place,
+      role: normalizeRoleForArrival(place.role, place.kind, day, arrivalTime),
+      originalIndex: index,
+    }))
+    .sort((a, b) => roleOrder(a) - roleOrder(b) || a.originalIndex - b.originalIndex)
+    .map(({ originalIndex, ...place }, index) => ({
+      ...place,
+      slotId: place.kind === 'stay' ? 'stay' : `d${day}p${index}`,
+    }))
+}
+
 // AI의 days(id+role) → 실제 place 객체로 복원. places 스냅샷은 검증에 쓴 것과 동일해야 함(호출자 보장).
 function resolveDays(planDays, places, totalDays, arrivalTime) {
   const days = []
@@ -118,7 +167,14 @@ function resolveDays(planDays, places, totalDays, arrivalTime) {
       const slotId = p.kind === 'stay' ? 'stay' : `d${d.day}p${i}`
       dayPlaces.push({ ...p, role: String(it.role || ''), slotId })
     })
-    if (dayPlaces.length) days.push({ day: d.day, title: `${d.day}일차`, summary: daySummary(d.day, totalDays, arrivalTime), places: dayPlaces })
+    if (dayPlaces.length) {
+      days.push({
+        day: d.day,
+        title: `${d.day}일차`,
+        summary: daySummary(d.day, totalDays, arrivalTime),
+        places: sortDayPlacesByTimeFlow(dayPlaces, d.day, arrivalTime),
+      })
+    }
   }
   return days
 }
