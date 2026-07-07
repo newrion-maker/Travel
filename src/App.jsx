@@ -184,12 +184,21 @@ export default function App() {
 
     let alive = true
     setAiPlanSource('loading')
-    const payloadCourses = courses.map(compactCourseForAi)
+    const verifiedPlaces = (tourPlaces || []).filter(isKakaoVerifiedPlace)
+    const courseMetas = courses.map((c) => ({
+      key: c.key,
+      label: c.label,
+      ratios: c.ratios,
+      budgetNet: c.budgetNet,
+      days: c.days?.length || 1,
+      itemsPerDay: (c.days || []).map((d) => d.places.length),
+    }))
+    const finishLoading = () => setScreen((s) => (s === 'loading' ? 'courses' : s))
 
     fetch('/api/ai-plan', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ input, personality, courses: payloadCourses }),
+      body: JSON.stringify({ input, personality, places: verifiedPlaces, courses: courseMetas }),
     })
       .then((response) => (response.ok ? response.json() : { plans: [] }))
       .then((data) => {
@@ -200,18 +209,20 @@ export default function App() {
         }
         setAiPlans(next)
         setAiPlanSource(data.source === 'openai' && Object.keys(next).length ? 'openai' : 'fallback')
+        finishLoading()
       })
       .catch(() => {
         if (alive) {
           setAiPlans({})
           setAiPlanSource('fallback')
+          finishLoading()
         }
       })
 
     return () => {
       alive = false
     }
-  }, [screen, input, personality, courses])
+  }, [screen, input, personality, courses, tourPlaces])
 
   function goHome() {
     setAnswers({})
@@ -230,12 +241,16 @@ export default function App() {
   }
 
   function showCourses() {
+    setActiveCourse(0)
     setScreen('loading')
-    window.setTimeout(() => {
-      setActiveCourse(0)
-      setScreen('courses')
-    }, 1300)
   }
+
+  // 로딩 안전장치: AI 응답이 12초(서버 wall-clock) 넘게 안 오면 강제로 결과 화면으로.
+  useEffect(() => {
+    if (screen !== 'loading') return undefined
+    const timer = window.setTimeout(() => setScreen((s) => (s === 'loading' ? 'courses' : s)), 13000)
+    return () => window.clearTimeout(timer)
+  }, [screen])
 
   return (
     <main className="min-h-[100dvh] bg-screen text-ink sm:bg-[#e7ebeb]">
@@ -677,12 +692,12 @@ function LoadingScreen() {
           <img src={splashTravel} alt="" className="h-[104px] w-[104px] translate-y-1 object-contain" />
         </div>
       </div>
-      <h2 className="mt-10 text-[22px] font-extrabold">코스를 짜는 중...</h2>
-      <p className="mt-3 text-[14.5px] font-medium text-ink-2">예산에 맞춰 정리하고 있어요</p>
+      <h2 className="mt-10 text-[22px] font-extrabold">AI가 코스를 짜는 중...</h2>
+      <p className="mt-3 text-[14.5px] font-medium text-ink-2">예산에 맞춰 일정을 설계하고 있어요</p>
       <div className="mt-10 grid w-full max-w-[260px] gap-3 text-left text-sm font-bold">
         <CheckLine done>성향 분석 완료</CheckLine>
         <CheckLine done>지역 장소 데이터 정리</CheckLine>
-        <CheckLine>예산 배분 · 동선 설계 중</CheckLine>
+        <CheckLine>AI가 예산 안에서 일정 설계 중</CheckLine>
       </div>
     </div>
   )
@@ -695,8 +710,12 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const [swapTarget, setSwapTarget] = useState(null) // { slotId, kind } | null
   const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
   const baseCourse = courses[activeIndex]
-  const hasAiOverride = Boolean(aiPlans?.[baseCourse.key])
-  const course = hasAiOverride ? { ...baseCourse, aiPlan: aiPlans[baseCourse.key] } : baseCourse
+  const ai = aiPlans?.[baseCourse.key]
+  const hasAiOverride = Boolean(ai)
+  // AI가 실제로 설계한 코스면(ai.days) 일정(장소·순서·역할)까지 교체. 코스 메타(예산·성향)는 규칙 것 유지.
+  const course = ai
+    ? { ...baseCourse, aiPlan: ai, ...(ai.days?.length ? { days: ai.days, places: ai.days.flatMap((d) => d.places) } : {}) }
+    : baseCourse
   const tone = accentClass[course.accent]
   const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
 
