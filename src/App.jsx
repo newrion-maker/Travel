@@ -321,8 +321,8 @@ function PhoneShell({ children, tone }) {
 function Splash({ onStart }) {
   return (
     <div
-      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3DB4B4] bg-cover bg-center px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:min-h-[860px]"
-      style={{ backgroundColor: '#3DB4B4', backgroundImage: `url(${splashBackground})` }}
+      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#328E8F] bg-cover bg-center px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:min-h-[860px]"
+      style={{ backgroundColor: '#328E8F', backgroundImage: `url(${splashBackground})` }}
     >
       <div className="relative z-10 mx-auto rounded-full bg-white/18 px-5 py-2.5 text-[13px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-sm">
         AI 여행 코스 추천
