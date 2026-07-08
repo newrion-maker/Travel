@@ -114,20 +114,15 @@ function compactCourseForAi(course) {
 function buildCourseShareMessage({ input, course, days, shareUrl }) {
   const cityName = input.regionLabel || input.region.split(' ').at(-1)
   const title = `${cityName} ${input.period} ${course.label} 코스`
-  const lines = [title, '', `예산: ${course.budget}`]
-  if (course.aiPlan?.summary) lines.push(course.aiPlan.summary)
+  const lines = [title, '']
 
-  days.forEach((day) => {
+  days.forEach((day, index) => {
     const places = day.places.slice(0, 5)
     if (!places.length) return
-    lines.push('', day.title)
-    places.forEach((place) => {
-      const role = place.role ? `${place.role} ` : ''
-      lines.push(`${role}${place.name}`)
-    })
+    lines.push(`${index + 1}일차: ${places.map((place) => place.name).join(', ')}`)
   })
 
-  lines.push('', '내 코스 보기', shareUrl)
+  lines.push('', `예상 비용 ${course.budget}`, '', '내 코스 보기', shareUrl)
   return lines.join('\n')
 }
 
