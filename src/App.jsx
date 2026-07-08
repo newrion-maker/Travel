@@ -735,6 +735,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
   const [overrides, setOverrides] = useState({}) // { [courseKey]: { [slotId]: place } } — 탭별 스왑
+  const [removed, setRemoved] = useState({}) // { [courseKey]: { [slotId]: true } } — 유저가 뺀 장소
   const [swapTarget, setSwapTarget] = useState(null) // { slotId, kind } | null
   const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
   const baseCourse = courses[activeIndex]
@@ -747,17 +748,26 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const tone = accentClass[course.accent]
   const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
 
-  // 유효 코스 = 기본 코스 + 사용자 스왑(오버라이드). 미터·리스트·지도 모두 이걸로 재계산.
+  // 유효 코스 = 기본 코스 + 사용자 스왑(오버라이드) − 사용자가 뺀 장소. 미터·리스트·지도 모두 이걸로 재계산.
   const courseOverrides = overrides[course.key] || {}
+  const courseRemoved = removed[course.key] || {}
   const applyOverride = (place) => {
     const rep = place.slotId ? courseOverrides[place.slotId] : null
     return rep ? { ...rep, slotId: place.slotId, role: place.role } : place
   }
-  const effectiveDays = dayPlans.map((day) => ({ ...day, places: day.places.map(applyOverride).filter(isKakaoVerifiedPlace) }))
+  const effectiveDays = dayPlans.map((day) => ({
+    ...day,
+    places: day.places
+      .filter((place) => !(place.slotId && courseRemoved[place.slotId]))
+      .map(applyOverride)
+      .filter(isKakaoVerifiedPlace),
+  }))
   const effectivePlaces = effectiveDays.flatMap((day) => day.places)
   const effectiveCourse = { ...course, days: effectiveDays, places: effectivePlaces }
   const currentDay = effectiveDays[Math.min(activeDay, effectiveDays.length - 1)]
   const editedCount = Object.keys(courseOverrides).length
+  const removedCount = Object.keys(courseRemoved).length
+  const changeNote = [editedCount && `바꾼 ${editedCount}곳`, removedCount && `뺀 ${removedCount}곳`].filter(Boolean).join(' · ')
 
   const usedNames = new Set(effectivePlaces.map((p) => p.name))
   const verifiedTourPlaces = (tourPlaces || []).filter(isKakaoVerifiedPlace)
@@ -773,7 +783,15 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
       delete next[slotId]
       return { ...prev, [course.key]: next }
     })
-  const resetCourse = () => setOverrides((prev) => ({ ...prev, [course.key]: {} }))
+  const removeSlot = (slotId) => {
+    setRemoved((prev) => ({ ...prev, [course.key]: { ...(prev[course.key] || {}), [slotId]: true } }))
+    clearSlot(slotId) // 뺀 장소의 스왑 기록은 정리
+  }
+  const restoreRemoved = () => setRemoved((prev) => ({ ...prev, [course.key]: {} }))
+  const resetCourse = () => {
+    setOverrides((prev) => ({ ...prev, [course.key]: {} }))
+    setRemoved((prev) => ({ ...prev, [course.key]: {} }))
+  }
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
@@ -848,6 +866,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
                     place={place}
                     index={idx + 1}
                     onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
+                    onRemove={place.slotId ? () => removeSlot(place.slotId) : null}
                   />
                 ))
               ) : (
@@ -863,11 +882,11 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         </article>
       </div>
       <BottomBar>
-        {editedCount > 0 && (
+        {(editedCount > 0 || removedCount > 0) && (
           <div className="mb-2 flex items-center justify-between gap-2 rounded-[12px] bg-amber/10 px-3 py-2">
-            <span className="text-[11px] font-semibold leading-snug text-amber-text">바꾼 {editedCount}곳은 공유 링크에 안 담겨요 (AI 기본 코스 기준)</span>
+            <span className="text-[11px] font-semibold leading-snug text-amber-text">{changeNote} · 공유 링크엔 AI 기본 코스가 담겨요</span>
             <button type="button" onClick={resetCourse} className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-teal-deep">
-              AI 추천으로
+              되돌리기
             </button>
           </div>
         )}
@@ -1381,7 +1400,7 @@ function MapPlaceholder({ places, source, className }) {
   )
 }
 
-function PlaceRow({ place, index, onSwap }) {
+function PlaceRow({ place, index, onSwap, onRemove }) {
   const kindTone =
     place.kind === 'stay'
       ? 'bg-teal-tint text-teal-deep'
@@ -1403,13 +1422,20 @@ function PlaceRow({ place, index, onSwap }) {
       </a>
       <div className="shrink-0 text-right">
         <p className="text-[12.5px] font-bold text-ink-2">{formatPlaceCost(place)}</p>
-        {onSwap ? (
-          <button type="button" onClick={onSwap} className="mt-1 h-7 rounded-full bg-teal-tint px-2.5 text-[10.5px] font-extrabold text-teal-deep">
-            바꾸기
-          </button>
-        ) : (
-          <p className="mt-1 text-[10.5px] font-extrabold text-teal-deep">지도</p>
-        )}
+        <div className="mt-1 flex items-center justify-end gap-1">
+          {onSwap && (
+            <button type="button" onClick={onSwap} className="h-7 rounded-full bg-teal-tint px-2.5 text-[10.5px] font-extrabold text-teal-deep">
+              바꾸기
+            </button>
+          )}
+          {onRemove ? (
+            <button type="button" onClick={onRemove} className="h-7 rounded-full bg-[#F0F3F3] px-2.5 text-[10.5px] font-extrabold text-ink-2">
+              빼기
+            </button>
+          ) : (
+            !onSwap && <p className="text-[10.5px] font-extrabold text-teal-deep">지도</p>
+          )}
+        </div>
       </div>
     </div>
   )
