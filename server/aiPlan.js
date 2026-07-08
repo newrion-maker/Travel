@@ -224,7 +224,10 @@ function processPlan(plan, meta, places, arrivalTime) {
 export async function generateAiPlans({ input, personality, places, courses } = {}) {
   const verified = Array.isArray(places) ? places : []
   const metas = Array.isArray(courses) ? courses : []
-  if (!hasUsableKey() || verified.length < 3 || !metas.length) return []
+  if (!hasUsableKey() || verified.length < 3 || !metas.length) {
+    console.log(`[ai-plan] 사전조건 미충족 → 규칙 fallback (key=${hasUsableKey()}, 검증장소=${verified.length}, 코스=${metas.length})`)
+    return []
+  }
 
   const deadline = Date.now() + WALL_CLOCK_MS
   const candidates = buildCandidates(verified)
@@ -254,7 +257,8 @@ export async function generateAiPlans({ input, personality, places, courses } = 
   let results
   try {
     results = await attempt(requireKeys)
-  } catch {
+  } catch (err) {
+    console.log(`[ai-plan] 1차 호출 실패 → 규칙 fallback: ${err?.name || ''} ${err?.message || err}`)
     return [] // 1차 실패/타임아웃 → 전부 규칙 fallback
   }
 
