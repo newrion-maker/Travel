@@ -4,8 +4,8 @@ export default defineConfig({
   // 앱인토스 콘솔에 등록한 앱 고유 키
   appName: 'budgettrip',
   brand: {
-    // 토스 미니앱 목록/스플래시에 표시되는 이름
-    displayName: '여행 코스 추천',
+    // 토스 미니앱 목록/스플래시에 표시되는 이름 (콘솔 등록명과 일치)
+    displayName: 'AI예산여행',
     // 앱 대표 색상 (현재 앱의 teal 브랜드 컬러)
     primaryColor: '#12B3A6',
     // TODO: 콘솔에 등록한 앱 아이콘 이미지 URL을 넣어야 함

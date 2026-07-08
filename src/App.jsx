@@ -6,6 +6,7 @@ import { formatKRW, sumCostRange, budgetState, formatPlaceCost } from './lib/bud
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
+import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
 import splashBackground from './assets/splash-background.jpg'
 import splashTravel from './assets/splash-travel.webp'
 import personalityFood from './assets/personality-food.webp'
@@ -20,6 +21,8 @@ const initialInput = {
   arrivalTime: '오후',
   budget: 150000,
 }
+
+const DAILY_FREE_LIMIT = 3
 
 const periods = ['당일치기', '1박2일', '2박3일']
 const arrivalTimes = ['오전', '오후', '저녁']
@@ -162,6 +165,7 @@ export default function App() {
   const [tourPlaces, setTourPlaces] = useState([])
   const [aiPlans, setAiPlans] = useState({})
   const [aiPlanSource, setAiPlanSource] = useState('fallback')
+  const [adGateOpen, setAdGateOpen] = useState(false)
   const aiReqSigRef = useRef('')
 
   const personality = useMemo(() => computePersonality(answers, input.period), [answers, input.period])
@@ -279,6 +283,22 @@ export default function App() {
     setScreen('loading')
   }
 
+  // [내 맞춤 코스 보기] 클릭 = AI 코스 생성 호출 시점. 유료화 정책 기획서 3장 기준 광고 게이트.
+  function requestCourses() {
+    if (getDailyGenCount() < DAILY_FREE_LIMIT) {
+      incrementDailyGenCount()
+      showCourses()
+    } else {
+      setAdGateOpen(true)
+    }
+  }
+
+  function handleAdComplete() {
+    incrementDailyGenCount()
+    setAdGateOpen(false)
+    showCourses()
+  }
+
   // 로딩 안전장치: AI 응답이 12초(서버 wall-clock) 넘게 안 오면 강제로 결과 화면으로.
   useEffect(() => {
     if (screen !== 'loading') return undefined
@@ -303,7 +323,7 @@ export default function App() {
             onPick={chooseAnswer}
           />
         )}
-        {screen === 'personality' && <PersonalityScreen personality={personality} onHome={goHome} onNext={showCourses} />}
+        {screen === 'personality' && <PersonalityScreen personality={personality} onHome={goHome} onNext={requestCourses} />}
         {screen === 'loading' && <LoadingScreen />}
         {screen === 'courses' && (
           <CoursesScreen
@@ -319,6 +339,7 @@ export default function App() {
             shareUrl={buildShareUrl({ input, answers, active: activeCourse })}
           />
         )}
+        <AdGateModal open={adGateOpen} onComplete={handleAdComplete} onClose={() => setAdGateOpen(false)} />
       </PhoneShell>
     </main>
   )
@@ -1013,6 +1034,49 @@ function StepButton({ children, fill, onClick }) {
 
 function BottomBar({ children }) {
   return <div className="absolute inset-x-0 bottom-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">{children}</div>
+}
+
+const AD_GATE_SECONDS = 5
+
+// 목업 광고 게이트: 실제 앱인토스 IAA SDK 연동 전까지, 타이머로 "광고 시청"을 흉내낸다.
+function AdGateModal({ open, onComplete, onClose }) {
+  const [remaining, setRemaining] = useState(AD_GATE_SECONDS)
+
+  useEffect(() => {
+    if (!open) return undefined
+    setRemaining(AD_GATE_SECONDS)
+    const timer = window.setInterval(() => setRemaining((n) => Math.max(0, n - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [open])
+
+  if (!open) return null
+
+  const canSkip = remaining <= 0
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+      <div className="w-full max-w-[320px] rounded-card bg-white p-6 text-center shadow-card-soft">
+        <p className="text-[13px] font-bold text-ink-2">오늘 무료 생성 횟수를 다 쓰셨어요</p>
+        <div className="mx-auto my-5 flex h-[120px] w-full items-center justify-center rounded-[16px] bg-[#EEF3F3] text-[13px] font-bold text-ink-3">
+          광고 영역 (목업)
+        </div>
+        <p className="mb-4 text-[12px] text-ink-3">{canSkip ? '광고 시청 완료' : `${remaining}초 후 스킵 가능`}</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} className="h-[44px] flex-1 rounded-btn border border-line text-[13px] font-bold text-ink-2">
+            닫기
+          </button>
+          <button
+            type="button"
+            disabled={!canSkip}
+            onClick={onComplete}
+            className="h-[44px] flex-[2] rounded-btn bg-teal text-[13px] font-extrabold text-white disabled:bg-[#DCE2E2] disabled:text-[#9AA6AB]"
+          >
+            {canSkip ? '코스 생성하기' : '잠시만 기다려주세요'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function PrimaryButton({ children, disabled, onClick }) {
