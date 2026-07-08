@@ -12,6 +12,7 @@
     "start": "node server/app.js"
   },
   "dependencies": {
+    "@apps-in-toss/web-framework": "^2.10.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

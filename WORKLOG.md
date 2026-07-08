@@ -1,5 +1,19 @@
 # 작업 로그
 
+## 2026-07-08 — 앱인토스 온보딩 Phase A (프레임워크 설치·설정)
+
+토스 앱인토스 미니앱 출품을 위해 웹 프레임워크를 붙였다.
+
+- **`@apps-in-toss/web-framework` 설치**: WebView 방식(기존 React+Vite SPA 유지). 설치 시 RN 계열 트리 포함 1,762개 패키지가 딸려오나, 빌드타임 의존성이라 클라이언트 vite 번들 크기는 변화 없음(index.js 226.93kB 동일).
+- **`granite.config.ts` 생성**: `appName: 'budgettrip'`(콘솔 등록 키), `displayName: '여행 코스 추천'`, `primaryColor: '#12B3A6'`(브랜드 teal), `web.commands`(dev: vite, build: vite build), `outdir: 'dist'`.
+  - **미완(TODO)**: `brand.icon`(콘솔 앱 아이콘 URL 필요), `permissions`(추후 광고 SDK 별도).
+- **CLI 배포 흐름 확인**: `ait token add --api-key`(콘솔 시크릿 토큰) → `ait build`(.ait 아티팩트) → `ait deploy`(업로드).
+- 기존 `npm run build`(vite) 정상 통과 확인.
+
+### 남은 결정 사항
+- **백엔드 호스팅**: 이 앱은 비밀 키를 쥔 `server/app.js`(OpenAI·TourAPI·Kakao)가 있어 순수 SPA가 아님. WebView 미니앱은 호스팅된 URL을 띄우므로, 프로덕션에서 이 백엔드를 어디에 배포할지 결정 필요.
+- 사업자·정산 정보 콘솔 등록(IAA 광고 선행 조건, 검토 2~3영업일).
+
 ## 2026-07-06 — 지역 선택 표시명 분리
 
 지역 선택 UX에서 API 조회용 행정구(`대구 중구`)와 사용자가 고른 여행지(`서문시장`)가 같은 값으로 표시되던 문제를 수정했다.
