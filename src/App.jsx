@@ -28,6 +28,15 @@ const DAILY_FREE_LIMIT = 3
 const BUDGET_STEP = 50000
 const BUDGET_MIN = 30000
 
+// 여름 인기 여행지 퀵칩 — 지역 선택 진입장벽을 낮추기 위한 원터치 추천 (여름 챌린지용).
+const SUMMER_QUICK_SPOTS = [
+  { chip: '강릉 경포대', region: '강원 강릉시', regionLabel: '강원 경포대' },
+  { chip: '부산 해운대', region: '부산 해운대구', regionLabel: '부산 해운대' },
+  { chip: '제주 함덕', region: '제주 제주시', regionLabel: '제주 함덕해수욕장' },
+  { chip: '양양 서피비치', region: '강원 양양군', regionLabel: '강원 서피비치' },
+  { chip: '여수 밤바다', region: '전남 여수시', regionLabel: '전남 여수밤바다' },
+]
+
 const periods = ['당일치기', '1박2일', '2박3일']
 const arrivalTimes = ['오전', '오후', '저녁']
 const accentClass = {
@@ -636,6 +645,23 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
       <div className="flex-1 overflow-y-auto px-4 pb-[calc(204px+env(safe-area-inset-bottom))] pt-3">
         <h2 className="whitespace-pre-line text-[22px] font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
         <p className="mt-2 text-[13px] font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
+        <div className="mt-4">
+          <p className="text-[12px] font-extrabold text-teal-deep">여름엔 여기 🌊</p>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {SUMMER_QUICK_SPOTS.map((spot) => (
+              <button
+                key={spot.regionLabel}
+                type="button"
+                onClick={() => setInput({ ...input, region: spot.region, regionLabel: spot.regionLabel })}
+                className={`shrink-0 rounded-full border px-3.5 py-2 text-[12.5px] font-bold ${
+                  input.regionLabel === spot.regionLabel ? 'border-teal bg-teal-tint text-teal-deep' : 'border-line bg-white text-ink-2'
+                }`}
+              >
+                {spot.chip}
+              </button>
+            ))}
+          </div>
+        </div>
         <Field label="지역">
           <button
             type="button"
