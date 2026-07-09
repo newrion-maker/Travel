@@ -24,6 +24,8 @@ const initialInput = {
 }
 
 const DAILY_FREE_LIMIT = 3
+const BUDGET_STEP = 50000
+const BUDGET_MIN = 30000
 
 const periods = ['당일치기', '1박2일', '2박3일']
 const arrivalTimes = ['오전', '오후', '저녁']
@@ -645,6 +647,10 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
             />
             <span className="text-lg font-bold text-ink-2">원</span>
           </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <StepButton onClick={() => setInput({ ...input, budget: Math.max(BUDGET_MIN, input.budget - BUDGET_STEP) })}>-</StepButton>
+            <StepButton fill onClick={() => setInput({ ...input, budget: input.budget + BUDGET_STEP })}>+</StepButton>
+          </div>
           <p className="mt-2 text-[12.5px] font-medium text-ink-3">교통비를 제외하고, 여행지에서 쓸 전체 인원 합산 금액을 입력해주세요.</p>
         </Field>
       </div>
@@ -1106,8 +1112,8 @@ function AdBanner({ className = '' }) {
 function BottomBar({ children, ad = false }) {
   return (
     <div className="absolute inset-x-0 bottom-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-      {ad && <AdBanner className="mb-3" />}
       {children}
+      {ad && <AdBanner className="mt-3" />}
     </div>
   )
 }
