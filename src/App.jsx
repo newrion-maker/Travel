@@ -1278,7 +1278,7 @@ function AdBanner({ className = '' }) {
 
 function BottomBar({ children, ad = false }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+    <div className="absolute inset-x-0 bottom-0 z-30 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
       {children}
       {ad && <AdBanner className="mt-3" />}
     </div>
@@ -1671,7 +1671,7 @@ function MapPreview({ places, source, className }) {
 
   if (useRealMap && status !== 'failed') {
     return (
-      <div className={`relative h-[170px] overflow-hidden rounded-[14px] bg-[#E9F1F0] ${className}`}>
+      <div className={`relative z-0 isolate h-[170px] overflow-hidden rounded-[14px] bg-[#E9F1F0] [transform:translateZ(0)] ${className}`}>
         <div ref={containerRef} className="h-full w-full" />
         {status !== 'ready' && (
           <div className="absolute inset-0 flex items-center justify-center text-[12px] font-bold text-ink-3">지도 불러오는 중…</div>
