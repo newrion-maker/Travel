@@ -1,5 +1,19 @@
 # 작업 로그
 
+## 2026-07-08 — 하단 상시 배너(TossAds 실물 SDK) + 백엔드 배포 준비
+
+앱인토스 사업자·정산 인증 대기 중, 승인과 무관하게 진행 가능한 작업들을 처리했다.
+
+- **하단 배너를 목업이 아닌 실제 `TossAds.attachBanner` SDK로 연동** (`src/App.jsx`).
+  - `overview.md`(토스 제공 API 목록)에서 "배너 광고(WebView)" 항목을 확인 후, 설치된 `@apps-in-toss/web-framework` 패키지에서 실제 타입/런타임 구현을 직접 뒤져 API 확인.
+  - `TossAds.initialize` → `TossAds.attachBanner(adGroupId, container, options)` → 언마운트 시 `destroy()`.
+  - **버그 발견 및 수정**: `TossAds.*.isSupported()`가 토스 앱 밖(일반 브라우저)에서 `false`를 반환하는 대신 `"~ is not a constant handler"` 에러를 던지는 문서화되지 않은 동작이 있어, 전부 `safeIsTossAdsSupported()`로 try/catch 방어. 방어 전엔 InputScreen 진입 시 앱 전체 크래시.
+  - 미지원 환경(현재 개발/브라우저)에서는 "광고 영역 (토스 앱에서만 표시)" 플레이스홀더로 자동 폴백.
+  - 입력/성향결과/코스결과 3개 화면(`BottomBar ad` prop)에 적용, 각 화면 하단 padding을 배너 높이(96px)만큼 보정. 성향 테스트 문항 화면은 하단 바 자체가 없는 구조라 이번엔 제외.
+  - 테스트 광고그룹 ID(`ait-ad-test-banner-id`) 사용 중 — **TODO**: 승인 후 실제 광고그룹 ID로 교체.
+- **백엔드 배포 준비**: `render.yaml`(Render 블루프린트) 추가, `package.json`에 `engines.node` 명시, `TOSS_LAUNCH.md`에 배포 절차·환경변수 등록 가이드 추가.
+- mTLS 인증서: 공식 문서 확인 결과 승인 전 발급 가능 여부가 명시돼 있지 않음 — 콘솔에서 직접 시도 필요(사용자 액션).
+
 ## 2026-07-08 — 일 3회 무료 게이트 + 광고 모달 목업
 
 유료화 정책 기획서(하루 2~3회 무료, 초과 시 광고 후 생성) 로직을 인증 완료 전이라도 먼저 구현했다.

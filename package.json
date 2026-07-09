@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "description": "지역·예산 기반 AI 여행 코스 추천 미니앱 (앱인토스)",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

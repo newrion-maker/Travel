@@ -7,6 +7,7 @@ import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
 import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
+import { TossAds } from '@apps-in-toss/web-framework'
 import splashBackground from './assets/splash-background.jpg'
 import splashTravel from './assets/splash-travel.webp'
 import personalityFood from './assets/personality-food.webp'
@@ -595,7 +596,7 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(204px+env(safe-area-inset-bottom))] pt-3">
         <h2 className="whitespace-pre-line text-[22px] font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
         <p className="mt-2 text-[13px] font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
         <Field label="지역">
@@ -647,7 +648,7 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           <p className="mt-2 text-[12.5px] font-medium text-ink-3">교통비를 제외하고, 여행지에서 쓸 전체 인원 합산 금액을 입력해주세요.</p>
         </Field>
       </div>
-      <BottomBar>
+      <BottomBar ad>
         <PrimaryButton disabled={!canContinue} onClick={onNext}>
           성향 테스트 시작하기
         </PrimaryButton>
@@ -704,7 +705,7 @@ function PersonalityScreen({ personality, onHome, onNext }) {
   const tone = accentClass[personality.accent]
   const resultImage = personalityImages[personality.top] ?? personalitySight
   return (
-    <div className="flex min-h-screen flex-col px-5 pb-28 pt-[68px] text-center sm:min-h-[860px]">
+    <div className="flex min-h-screen flex-col px-5 pb-[220px] pt-[68px] text-center sm:min-h-[860px]">
       <HomeButton onClick={onHome} className="absolute right-4 top-5" />
       <div className="mx-auto rounded-full bg-teal-tint px-4 py-2 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
       <img
@@ -720,7 +721,7 @@ function PersonalityScreen({ personality, onHome, onNext }) {
         {personality.desc[2]}
       </div>
       <BudgetPreview ratios={personality.ratios} className="mt-8" />
-      <BottomBar>
+      <BottomBar ad>
         <PrimaryButton onClick={onNext}>내 맞춤 코스 보기</PrimaryButton>
       </BottomBar>
     </div>
@@ -829,7 +830,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           ))}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(104px+env(safe-area-inset-bottom))] pt-3">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(212px+env(safe-area-inset-bottom))] pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col items-start gap-2">
@@ -897,7 +898,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-4" />
         </article>
       </div>
-      <BottomBar>
+      <BottomBar ad>
         {(editedCount > 0 || removedCount > 0) && (
           <div className="mb-2 flex items-center justify-between gap-2 rounded-[12px] bg-amber/10 px-3 py-2">
             <span className="text-[11px] font-semibold leading-snug text-amber-text">{changeNote} · 공유 링크엔 AI 기본 코스가 담겨요</span>
@@ -1032,8 +1033,83 @@ function StepButton({ children, fill, onClick }) {
   )
 }
 
-function BottomBar({ children }) {
-  return <div className="absolute inset-x-0 bottom-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">{children}</div>
+// 앱인토스 콘솔 승인 전이라 테스트 광고그룹 ID 사용 중. 승인 후 실제 배너 광고그룹 ID로 교체할 것.
+const BANNER_AD_GROUP_ID = 'ait-ad-test-banner-id'
+
+// TossAds.*.isSupported()는 토스 앱 밖(일반 브라우저 등)에서 false를 반환하는 대신
+// "not a constant handler" 에러를 던진다 — 문서화되지 않은 동작이라 항상 try/catch로 방어한다.
+function safeIsTossAdsSupported(fn) {
+  try {
+    return fn()
+  } catch {
+    return false
+  }
+}
+
+let tossAdsInitPromise = null
+function ensureTossAdsInitialized() {
+  if (!safeIsTossAdsSupported(TossAds.initialize.isSupported)) return Promise.resolve(false)
+  if (tossAdsInitPromise) return tossAdsInitPromise
+  tossAdsInitPromise = new Promise((resolve) => {
+    try {
+      TossAds.initialize({
+        callbacks: {
+          onInitialized: () => resolve(true),
+          onInitializationFailed: () => resolve(false),
+        },
+      })
+    } catch {
+      resolve(false)
+    }
+  })
+  return tossAdsInitPromise
+}
+
+// 앱인토스 WebView 배너 광고. 토스 앱 밖(일반 브라우저 등)에서는 지원되지 않아
+// 자동으로 자리표시자만 보여준다 — 승인 후 실제 앱에서 열면 이 자리에 실제 배너가 붙는다.
+function AdBanner({ className = '' }) {
+  const containerRef = useRef(null)
+  const [attached, setAttached] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    let result = null
+    if (!safeIsTossAdsSupported(TossAds.attachBanner.isSupported)) return undefined
+
+    ensureTossAdsInitialized().then((ok) => {
+      if (!alive || !ok || !containerRef.current) return
+      try {
+        result = TossAds.attachBanner(BANNER_AD_GROUP_ID, containerRef.current, { theme: 'auto' })
+        setAttached(true)
+      } catch {
+        // 배너를 붙일 수 없는 환경 — 자리표시자 유지
+      }
+    })
+
+    return () => {
+      alive = false
+      result?.destroy()
+    }
+  }, [])
+
+  return (
+    <div ref={containerRef} className={`h-[96px] w-full overflow-hidden rounded-[10px] ${className}`}>
+      {!attached && (
+        <div className="flex h-full w-full items-center justify-center bg-[#F4F6F6] text-[11px] font-semibold text-ink-3">
+          광고 영역 (토스 앱에서만 표시)
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BottomBar({ children, ad = false }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+      {ad && <AdBanner className="mb-3" />}
+      {children}
+    </div>
+  )
 }
 
 const AD_GATE_SECONDS = 5
