@@ -7,6 +7,7 @@ import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
 import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
+import { getSavedCourses, saveCourse, removeSavedCourse } from './lib/savedCourses.js'
 import { TossAds } from '@apps-in-toss/web-framework'
 import splashBackground from './assets/splash-background.jpg'
 import splashTravel from './assets/splash-travel.webp'
@@ -169,6 +170,7 @@ export default function App() {
   const [aiPlans, setAiPlans] = useState({})
   const [aiPlanSource, setAiPlanSource] = useState('fallback')
   const [adGateOpen, setAdGateOpen] = useState(false)
+  const [viewingSaved, setViewingSaved] = useState(null)
   const aiReqSigRef = useRef('')
 
   const personality = useMemo(() => computePersonality(answers, input.period), [answers, input.period])
@@ -269,6 +271,7 @@ export default function App() {
     setAnswers({})
     setQuestionIndex(0)
     setActiveCourse(0)
+    setViewingSaved(null)
     setScreen('splash')
   }
 
@@ -312,7 +315,9 @@ export default function App() {
   return (
     <main className="min-h-[100dvh] bg-screen text-ink sm:bg-[#e7ebeb]">
       <PhoneShell tone={screen === 'splash' ? 'teal' : 'light'}>
-        {screen === 'splash' && <Splash onStart={() => setScreen('input')} />}
+        {screen === 'splash' && (
+          <Splash onStart={() => setScreen('input')} onViewSaved={() => setScreen('savedList')} hasSaved={getSavedCourses().length > 0} />
+        )}
         {screen === 'input' && (
           <InputScreen input={input} setInput={setInput} canContinue={canStartTest} onBack={() => setScreen('splash')} onNext={() => setScreen('test')} />
         )}
@@ -342,6 +347,28 @@ export default function App() {
             shareUrl={buildShareUrl({ input, answers, active: activeCourse })}
           />
         )}
+        {screen === 'savedList' && (
+          <SavedCoursesScreen
+            onOpen={(entry) => {
+              setViewingSaved(entry)
+              setScreen('savedDetail')
+            }}
+            onBack={() => setScreen('splash')}
+            onHome={goHome}
+          />
+        )}
+        {screen === 'savedDetail' && viewingSaved && (
+          <SavedCourseDetailScreen
+            entry={viewingSaved}
+            onBack={() => setScreen('savedList')}
+            onHome={goHome}
+            onDelete={() => {
+              removeSavedCourse(viewingSaved.id)
+              setViewingSaved(null)
+              setScreen('savedList')
+            }}
+          />
+        )}
         <AdGateModal open={adGateOpen} onComplete={handleAdComplete} onClose={() => setAdGateOpen(false)} />
       </PhoneShell>
     </main>
@@ -362,12 +389,20 @@ function PhoneShell({ children, tone }) {
   )
 }
 
-function Splash({ onStart }) {
+function Splash({ onStart, onViewSaved, hasSaved }) {
   return (
     <div
       className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-[length:100%_auto] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:min-h-[860px]"
       style={{ backgroundColor: '#3FB3B4', backgroundImage: `url(${splashBackground})` }}
     >
+      {hasSaved && (
+        <button
+          onClick={onViewSaved}
+          className="absolute right-5 top-[max(env(safe-area-inset-top),20px)] z-20 text-[12.5px] font-bold text-white/85 underline underline-offset-2"
+        >
+          저장한 코스
+        </button>
+      )}
       <div className="relative z-10 mx-auto rounded-full bg-white/18 px-5 py-2.5 text-[13px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-sm">
         AI 여행 코스 추천
       </div>
@@ -757,6 +792,7 @@ function LoadingScreen() {
 function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
+  const [saveStatus, setSaveStatus] = useState('')
   const [overrides, setOverrides] = useState({}) // { [courseKey]: { [slotId]: place } } — 탭별 스왑
   const [removed, setRemoved] = useState({}) // { [courseKey]: { [slotId]: true } } — 유저가 뺀 장소
   const [swapTarget, setSwapTarget] = useState(null) // { slotId, kind } | null
@@ -836,7 +872,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           ))}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(212px+env(safe-area-inset-bottom))] pt-3">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(280px+env(safe-area-inset-bottom))] pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col items-start gap-2">
@@ -914,25 +950,41 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           </div>
         )}
         {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
-        <PrimaryButton
-          onClick={async () => {
-            const cityName = input.regionLabel || input.region.split(' ').at(-1)
-            const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl })
-            if (navigator.share) {
-              try {
-                await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: shareUrl })
-                return
-              } catch (err) {
-                if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소
+        {saveStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{saveStatus}</p>}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              saveCourse({ input, course: effectiveCourse })
+              setSaveStatus('코스를 저장했어요')
+              window.setTimeout(() => setSaveStatus(''), 1800)
+            }}
+            className="h-[52px] flex-1 rounded-btn border-[1.5px] border-teal bg-white text-[14px] font-extrabold text-teal-deep"
+          >
+            저장하기
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              const cityName = input.regionLabel || input.region.split(' ').at(-1)
+              const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl })
+              if (navigator.share) {
+                try {
+                  await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: shareUrl })
+                  return
+                } catch (err) {
+                  if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소
+                }
               }
-            }
-            const copied = await copyTextToClipboard(shareMessage)
-            setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
-            window.setTimeout(() => setShareStatus(''), 1800)
-          }}
-        >
-          코스 공유하기
-        </PrimaryButton>
+              const copied = await copyTextToClipboard(shareMessage)
+              setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
+              window.setTimeout(() => setShareStatus(''), 1800)
+            }}
+            className="h-[52px] flex-[1.4] rounded-btn bg-teal text-[15px] font-extrabold text-white shadow-cta"
+          >
+            코스 공유하기
+          </button>
+        </div>
       </BottomBar>
       <SwapSheet
         open={Boolean(swapTarget)}
@@ -950,6 +1002,121 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           setSwapTarget(null)
         }}
       />
+    </div>
+  )
+}
+
+function SavedCoursesScreen({ onOpen, onBack, onHome }) {
+  const [list, setList] = useState(() => getSavedCourses())
+
+  return (
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+      <Header title="저장한 코스" onBack={onBack} onHome={onHome} />
+      <div className="flex-1 overflow-y-auto px-4 pb-8 pt-3">
+        {list.length === 0 ? (
+          <div className="mt-16 text-center text-[13.5px] font-semibold text-ink-3">아직 저장한 코스가 없어요.</div>
+        ) : (
+          <div className="grid gap-3">
+            {list.map((entry) => (
+              <div key={entry.id} className="rounded-card bg-white p-4 shadow-card">
+                <button type="button" onClick={() => onOpen(entry)} className="block w-full text-left">
+                  <p className="text-[11px] font-bold text-ink-3">{new Date(entry.savedAt).toLocaleDateString('ko-KR')} 저장</p>
+                  <h3 className="mt-1 text-[16px] font-extrabold">{entry.course.title}</h3>
+                  <p className="mt-1 text-[12.5px] font-semibold text-ink-2">
+                    {entry.regionLabel} · {entry.period} · {entry.course.label}
+                  </p>
+                  <p className="mt-1 text-[12.5px] font-bold text-teal-deep">{entry.course.budget}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeSavedCourse(entry.id)
+                    setList(getSavedCourses())
+                  }}
+                  className="mt-2 text-[11.5px] font-bold text-ink-3 underline"
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
+  const [activeDay, setActiveDay] = useState(0)
+  const course = entry.course
+  const tone = accentClass[course.accent] || accentClass.teal
+  const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
+  const currentDay = dayPlans[Math.min(activeDay, dayPlans.length - 1)]
+
+  return (
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+      <Header title="저장한 코스" onBack={onBack} onHome={onHome} right={`${entry.regionLabel} · ${entry.period} · ${entry.arrivalTime} 도착`} />
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3">
+        <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col items-start gap-2">
+              <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${tone.chip}`}>{course.label} 코스</span>
+              <DataSourceBadge source={course.source} />
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] font-bold text-ink-3">예상 비용</p>
+              <p className="text-base font-extrabold">{course.budget}</p>
+            </div>
+          </div>
+          <h2 className="mt-4 text-[19px] font-extrabold">{course.title}</h2>
+          {course.aiPlan?.summary && (
+            <div className="mt-2 flex items-start gap-1.5">
+              <span className="mt-0.5 shrink-0 rounded-full bg-[#EAF2F1] px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">AI</span>
+              <p className="min-h-[2.6em] text-[12px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan.summary}</p>
+            </div>
+          )}
+          <RatioBar ratios={course.ratios} className="mt-4" />
+          <div className="mt-1.5 flex gap-2.5 text-[10.5px] font-semibold text-ink-3">
+            <span>숙박 {course.ratios.stay}%</span>
+            <span>식비 {course.ratios.food}%</span>
+            <span>관광 {course.ratios.sight}%</span>
+          </div>
+          <BudgetMeter course={course} />
+          {dayPlans.length > 1 && (
+            <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: `repeat(${dayPlans.length}, minmax(0, 1fr))` }}>
+              {dayPlans.map((day, idx) => (
+                <button
+                  key={day.day}
+                  type="button"
+                  onClick={() => setActiveDay(idx)}
+                  className={`h-10 rounded-sq-lg text-[13px] font-extrabold ${
+                    activeDay === idx ? 'bg-teal text-white shadow-cta' : 'border border-line bg-white text-ink-2'
+                  }`}
+                >
+                  {day.title}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="mt-4">
+            <div className="flex items-end justify-between gap-2">
+              <p className="text-[12.5px] font-extrabold text-ink-3">{currentDay.title} 코스 동선</p>
+              <span className="text-[12px] font-bold text-teal-deep">{currentDay.summary}</span>
+            </div>
+            <div className="mt-3">
+              {currentDay.places.map((place, idx) => (
+                <PlaceRow key={`${place.slotId || place.name}-${idx}`} place={place} index={idx + 1} onSwap={null} onRemove={null} />
+              ))}
+            </div>
+          </div>
+          <MapPreview places={currentDay.places} source={course.source} className="mt-4" />
+        </article>
+      </div>
+      <BottomBar>
+        <button type="button" onClick={onDelete} className="h-[52px] w-full rounded-btn border-[1.5px] border-line text-[14px] font-extrabold text-ink-2">
+          저장 삭제하기
+        </button>
+      </BottomBar>
     </div>
   )
 }
