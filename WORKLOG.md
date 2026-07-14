@@ -1,5 +1,35 @@
 # 작업 로그
 
+## 2026-07-14 — 실기기(iPhone/토스 웹뷰) 지역 선택 반복 초기화 버그 대응: RegionPicker/SwapSheet를 포털로 전환
+
+실기기(iPhone 17, 토스 앱) QR 테스트 중 발견: "인천" 선택 후 "마니산" 같은 여행지를 탭하면
+지역이 적용되지 않고 시/도 선택 화면으로 되돌아가는 현상 재현(크로미움 프리뷰에서는 재현 안 됨,
+WebKit/토스 웹뷰 전용 가능성). `RegionPicker`/`SwapSheet` 둘 다 `position: fixed` 오버레이를
+`PhoneShell`(`overflow-hidden` `relative` 컨테이너) 안쪽 깊숙이 중첩해서 렌더링하던 구조라,
+containing-block 관련 WebKit 히트테스트 이슈의 유력 후보로 보고 방어적으로 수정.
+
+- **`src/App.jsx`**: `react-dom`의 `createPortal` 도입. `RegionPicker`, `SwapSheet` 모두
+  `document.body`로 직접 포털 렌더링하도록 변경(기존 앱 트리 중첩 위치 대신). 조상 요소의
+  overflow/stacking-context에 전혀 영향받지 않는 구조로 전환 — 이번 세션 초반 지도(Kakao Map)
+  스크롤 중 버튼 위로 튀어나오던 Chromium 클리핑 버그와 같은 계열의 원인을 원천 차단.
+- 크로미움 프리뷰에서 동일 시나리오(인천 → 마니산) 재검증: 정상적으로 "인천 마니산"이 지역 필드에
+  적용되고 피커가 닫힘, 콘솔 에러 없음, `npm run build` 정상.
+- 실기기 재현 여부는 사용자 재테스트로 확인 필요 — WebKit 전용 버그일 경우 이 구조 변경으로
+  해결될 가능성이 높으나, 100% 확정은 아니므로 QR 재배포 후 동일 시나리오 재확인 요망.
+
+**추가 재현 확인**: 사용자가 아이폰 사파리(토스 앱 아님)에서 같은 URL로 직접 테스트 → 동일하게
+재현됨(토스 웹뷰 전용이 아니라 WebKit 일반 이슈로 확정). 게다가 여행지 목록 화면의 ✕ 닫기 버튼도
+눌러도 안 닫힘 — "선택/닫기 무엇을 눌러도 시/도 그리드로 되돌아간다"는 동일 증상으로, 시트가 닫힌
+직후 그 자리에 있던 하위 "지역" 버튼이 지연된(고스트) 클릭을 한 번 더 받아 시트를 즉시 재오픈시키는
+것으로 추정(재오픈 시 `open` 이펙트가 `sido`를 초기화하므로 그리드로 되돌아간 것처럼 보임).
+
+- **`src/App.jsx`**: `InputScreen`에 `regionClosedAtRef`(닫힌 시각 기록용 ref) 추가. "지역" 버튼
+  onClick에서 `Date.now() - regionClosedAtRef.current < 400`이면 재오픈을 무시하는 가드 추가.
+  `RegionPicker`의 `onClose`/`onSelect` 양쪽 모두 닫히는 시점에 `regionClosedAtRef.current = Date.now()`
+  기록. `touch-action: manipulation`은 이미 `body`에 전역 설정돼 있었음(추가 완화 불가, 근본 원인은
+  WebKit의 지연 클릭/타겟 재계산으로 추정).
+- 빌드 정상, 크로미움 프리뷰 재검증 정상(이 환경에서는 애초에 재현 안 됐음 — 실기기/사파리 재검증 필요).
+
 ## 2026-07-09 — 프론트/백엔드 분리 배포 대비: CORS + 백엔드 절대 URL 아키텍처
 
 앱인토스 실기기 테스트 공식 문서(`development/test/toss.html`) 확인 중 발견: `ait deploy`로 배포하면

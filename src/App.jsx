@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { QUESTIONS } from './data/questions.js'
 import regionData from './data/regions.json'
 import curatedData from './data/curated-regions.json'
@@ -509,7 +510,7 @@ function RegionPicker({ open, onClose, onSelect }) {
   const sigunguItems = sido ? sido.sigungu.map((sg) => toItem(sido.name, sg)).sort((a, b) => (b.label ? 1 : 0) - (a.label ? 1 : 0)) : []
   const spotMode = sido && !showAll && spotItems.length > 0
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50">
       <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/40" />
       <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[430px]">
@@ -634,12 +635,16 @@ function RegionPicker({ open, onClose, onSelect }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
 function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   const [regionOpen, setRegionOpen] = useState(false)
+  // iOS WebKit: 시트가 닫힌 직후, 그 아래 있던 "지역" 버튼이 지연된(고스트) 클릭을 한 번 더
+  // 받아 시트가 바로 재오픈되는 현상 방지용 가드(닫힘 시각을 기록해 짧은 시간 내 재오픈 무시).
+  const regionClosedAtRef = useRef(0)
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
@@ -666,7 +671,10 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
         <Field label="지역">
           <button
             type="button"
-            onClick={() => setRegionOpen(true)}
+            onClick={() => {
+              if (Date.now() - regionClosedAtRef.current < 400) return
+              setRegionOpen(true)
+            }}
             className={`flex h-[54px] w-full items-center justify-between rounded-field border-[1.5px] bg-white px-4 text-base font-bold shadow-field ${
               input.region ? 'border-teal text-ink' : 'border-line text-ink-3'
             }`}
@@ -676,9 +684,13 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           </button>
           <RegionPicker
             open={regionOpen}
-            onClose={() => setRegionOpen(false)}
+            onClose={() => {
+              regionClosedAtRef.current = Date.now()
+              setRegionOpen(false)
+            }}
             onSelect={({ region, regionLabel }) => {
               setInput({ ...input, region, regionLabel: regionLabel || region })
+              regionClosedAtRef.current = Date.now()
               setRegionOpen(false)
             }}
           />
@@ -1538,7 +1550,7 @@ function SwapSheet({ open, currentPlace, basePlace, candidates, onClose, onSelec
   const kindTone = (kind) =>
     kind === 'stay' ? 'bg-teal-tint text-teal-deep' : kind === 'food' ? 'bg-coral-tint text-coral-deep' : 'bg-amber/15 text-amber-text'
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50">
       <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/40" />
       <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[430px]">
@@ -1595,7 +1607,8 @@ function SwapSheet({ open, currentPlace, basePlace, candidates, onClose, onSelec
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
