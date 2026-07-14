@@ -1,5 +1,24 @@
 # 작업 로그
 
+## 2026-07-14 — PC(데스크톱)에서도 항상 실제 폰 크기(430×812)로 렌더링하도록 변경
+
+QA 편의를 위해: 지금까지는 데스크톱(640px 이상)에서 `PhoneShell`이 `h-auto`(콘텐츠에 맞춰 늘어남)
+였어서, 창을 넓게 열면 모바일에서만 발생하는 "고정 높이 + 내부 스크롤" 레이아웃 버그가 재현되지
+않았음(전체 내용이 그냥 다 펼쳐져 보임). 매번 개발자도구로 기기 크기를 수동으로 맞춰야 하는 불편도 있었음.
+
+- **`src/App.jsx` (`PhoneShell`)**: 데스크톱 스타일을 `sm:h-auto sm:min-h-[860px]` →
+  `sm:h-[812px] sm:min-h-0`로 변경 — 창 크기와 무관하게 카드가 항상 실제 아이폰 크기(430×812)로
+  고정됨. 바깥 wrapper는 `sm:items-stretch` → `sm:items-center`로 바꿔 넓은 창에서 카드가 수직
+  중앙 정렬되도록 함.
+- **모든 화면 컴포넌트**(`Splash`/`InputScreen`/`TestScreen`/`PersonalityScreen`/`LoadingScreen`/
+  `CoursesScreen`/`SavedCoursesScreen`/`SavedCourseDetailScreen`): `sm:min-h-[860px]` →
+  `sm:h-full sm:min-h-0`로 일괄 교체 — 각 화면이 이제 뷰포트(`100dvh`)가 아니라 부모 카드의
+  높이(고정 812px)를 그대로 채우도록 해서, 데스크톱에서도 모바일과 동일하게 내부 스크롤이 발생함.
+- 검증: 1280×900 데스크톱 창에서 카드가 정확히 430×812로 고정·중앙정렬되고, InputScreen 내부
+  콘텐츠(scrollHeight 793 vs clientHeight 573)가 실제로 내부 스크롤 필요 상태이며, 스크롤 콘텐츠
+  경계와 BottomBar 상단 경계가 정확히 일치하는 것을 좌표로 확인. 이제부터는 PC 브라우저 창 크기와
+  무관하게 항상 실제 모바일과 동일한 레이아웃/스크롤 동작으로 테스트 가능.
+
 ## 2026-07-14 — 하단 액션 버튼: absolute 오버레이 → flex 인라인 구조로 근본 수정
 
 바로 이전 수정(`relative` 추가)을 Render에 배포해 실기기 사파리로 재검증했는데도, "인원수" 스텝퍼가

@@ -388,9 +388,9 @@ export default function App() {
 
 function PhoneShell({ children, tone }) {
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full bg-screen sm:max-w-[430px] sm:items-stretch sm:justify-center sm:bg-[#dfe5e5] sm:py-6">
+    <div className="mx-auto flex min-h-[100dvh] w-full bg-screen sm:max-w-[430px] sm:items-center sm:justify-center sm:bg-[#dfe5e5] sm:py-6">
       <section
-        className={`relative h-[100dvh] min-h-[100dvh] w-full overflow-hidden sm:h-auto sm:min-h-[860px] sm:rounded-[34px] sm:shadow-2xl ${
+        className={`relative h-[100dvh] min-h-[100dvh] w-full overflow-hidden sm:h-[812px] sm:min-h-0 sm:rounded-[34px] sm:shadow-2xl ${
           tone === 'teal' ? 'bg-[#3FB3B4] text-white' : 'bg-screen text-ink'
         }`}
       >
@@ -403,7 +403,7 @@ function PhoneShell({ children, tone }) {
 function Splash({ onStart, onViewSaved, hasSaved }) {
   return (
     <div
-      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-[length:100%_auto] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:min-h-[860px]"
+      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-[length:100%_auto] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:h-full sm:min-h-0"
       style={{ backgroundColor: '#3FB3B4', backgroundImage: `url(${splashBackground})` }}
     >
       {hasSaved && (
@@ -645,7 +645,7 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   // 받아 시트가 바로 재오픈되는 현상 방지용 가드(닫힘 시각을 기록해 짧은 시간 내 재오픈 무시).
   const regionClosedAtRef = useRef(0)
   return (
-    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
       <Header title="여행 정보" onBack={onBack} />
       <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
         <h2 className="whitespace-pre-line text-[22px] font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
@@ -738,7 +738,7 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
 
 function TestScreen({ question, index, picked, onBack, onHome, onPick }) {
   return (
-    <div className="flex min-h-screen flex-col px-5 pb-8 pt-[58px] sm:min-h-[860px]">
+    <div className="flex min-h-screen flex-col px-5 pb-8 pt-[58px] sm:h-full sm:min-h-0">
       <button onClick={onBack} className="absolute left-4 top-5 h-9 w-9 rounded-full text-xl font-bold text-ink-2">
         ‹
       </button>
@@ -784,7 +784,7 @@ function PersonalityScreen({ personality, onHome, onNext }) {
   const tone = accentClass[personality.accent]
   const resultImage = personalityImages[personality.top] ?? personalitySight
   return (
-    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col text-center sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col text-center sm:h-full sm:min-h-0">
       <HomeButton onClick={onHome} className="absolute right-4 top-5 z-20" />
       <div className="flex-1 overflow-y-auto px-5 pb-4 pt-[68px]">
         <div className="mx-auto rounded-full bg-teal-tint px-4 py-2 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
@@ -811,7 +811,7 @@ function PersonalityScreen({ personality, onHome, onNext }) {
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center px-5 text-center sm:min-h-[860px]">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center px-5 text-center sm:h-full sm:min-h-0">
       <div className="relative flex h-[132px] w-[132px] items-center justify-center">
         <div className="absolute inset-0 animate-spin095 rounded-full border-[7px] border-[#E1EAEA] border-t-teal" />
         <div className="flex h-[104px] w-[104px] animate-bob-fast items-center justify-center rounded-full bg-white shadow-card-soft">
@@ -939,7 +939,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   }
 
   return (
-    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
       <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.regionLabel || input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
       <div className="px-4 pt-2">
         <div className="grid rounded-[14px] bg-[#E9EEEE] p-1" style={{ gridTemplateColumns: `repeat(${courses.length}, minmax(0, 1fr))` }}>
@@ -1099,7 +1099,7 @@ function SavedCoursesScreen({ onOpen, onBack, onHome }) {
   const [list, setList] = useState(() => getSavedCourses())
 
   return (
-    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
       <Header title="저장한 코스" onBack={onBack} onHome={onHome} />
       <div className="flex-1 overflow-y-auto px-4 pb-8 pt-3">
         {list.length === 0 ? (
@@ -1143,7 +1143,7 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
   const currentDay = dayPlans[Math.min(activeDay, dayPlans.length - 1)]
 
   return (
-    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
       <Header title="저장한 코스" onBack={onBack} onHome={onHome} right={`${entry.regionLabel} · ${entry.period} · ${entry.arrivalTime} 도착`} />
       <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
