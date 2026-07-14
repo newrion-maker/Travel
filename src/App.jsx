@@ -647,7 +647,7 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(204px+env(safe-area-inset-bottom))] pt-3">
+      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
         <h2 className="whitespace-pre-line text-[22px] font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
         <p className="mt-2 text-[13px] font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
         <div className="mt-4">
@@ -786,7 +786,7 @@ function PersonalityScreen({ personality, onHome, onNext }) {
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col text-center sm:min-h-[860px]">
       <HomeButton onClick={onHome} className="absolute right-4 top-5 z-20" />
-      <div className="flex-1 overflow-y-auto px-5 pb-[calc(220px+env(safe-area-inset-bottom))] pt-[68px]">
+      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-[68px]">
         <div className="mx-auto rounded-full bg-teal-tint px-4 py-2 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
         <img
           src={resultImage}
@@ -959,7 +959,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         </div>
       </div>
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-[calc(280px+env(safe-area-inset-bottom))] pt-3">
+        <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-4 pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col items-start gap-2">
@@ -1145,7 +1145,7 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="저장한 코스" onBack={onBack} onHome={onHome} right={`${entry.regionLabel} · ${entry.period} · ${entry.arrivalTime} 도착`} />
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3">
+      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col items-start gap-2">
@@ -1367,7 +1367,7 @@ function AdBanner({ className = '' }) {
 
 function BottomBar({ children, ad = false }) {
   return (
-    <div className="absolute inset-x-0 bottom-0 z-30 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+    <div className="relative z-30 shrink-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
       {children}
       {ad && <AdBanner className="mt-3" />}
     </div>

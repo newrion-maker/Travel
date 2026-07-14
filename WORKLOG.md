@@ -1,5 +1,29 @@
 # 작업 로그
 
+## 2026-07-14 — 하단 액션 버튼: absolute 오버레이 → flex 인라인 구조로 근본 수정
+
+바로 이전 수정(`relative` 추가)을 Render에 배포해 실기기 사파리로 재검증했는데도, "인원수" 스텝퍼가
+BottomBar에 가려 보이는 현상 재현(반투명 `backdrop-blur` 배경 너머로 스텝퍼가 비쳐 보임). Chromium
+프리뷰로 동일 시나리오를 재보니 겹침이 없어서(`pb-[calc(204px+...)]` 예약 여백이 실제 BottomBar
+높이보다 충분히 큼), 실기기 전용 원인 — `position:absolute + bottom:0`가 `100dvh` 컨테이너 안에서
+WebKit의 동적 툴바(주소창) 리사이즈와 상호작용하며 컨테이닝 블록 높이가 불안정하게 계산되는 것으로
+추정(추측이지 확정 아님, 원격 디버깅 불가라 재현 불가능한 환경적 한계).
+
+**근본적 해결**: "겹침 예방을 위해 여백을 정확히 예약"하는 접근(추측에 의존) 대신, 애초에 겹칠 수
+없는 구조로 변경.
+
+- **`src/App.jsx` (`BottomBar`)**: `absolute inset-x-0 bottom-0` 제거 → `relative shrink-0`로 변경.
+  이제 헤더/스크롤 콘텐츠와 같은 `flex-col` 안의 평범한 마지막 자식 — 3개 자식의 높이 합이 항상
+  컨테이너의 `h-[100dvh]`와 정확히 일치하는 순수 flexbox 배치라 겹침이 구조적으로 불가능함(dvh/
+  안전영역/WebKit 리사이즈 타이밍과 무관).
+- **`InputScreen`/`PersonalityScreen`/`CoursesScreen`/`SavedCourseDetailScreen`**: BottomBar 높이를
+  추정해 예약하던 `pb-[calc(Npx+env(safe-area-inset-bottom))]`를 전부 제거하고 단순 `pb-4`로 교체
+  — 더 이상 BottomBar 실제 높이를 수동으로 맞출 필요 없음(CoursesScreen의 "바꾼 곳 있음" 주황
+  알림처럼 BottomBar 높이가 동적으로 바뀌는 경우도 자동으로 맞춰짐).
+- 검증: 코스 화면에서 "빼기"를 눌러 BottomBar가 185px→233.5px로 실제로 늘어나는 상황까지 만들어
+  스크롤 콘텐츠 하단 경계와 BottomBar 상단 경계 좌표가 항상 소수점까지 정확히 일치, 문서 전체
+  높이도 뷰포트와 항상 일치(추가 스크롤 없음)하는 것을 좌표로 확인. 빌드 정상.
+
 ## 2026-07-14 — 실기기(모바일)에서 하단 액션 버튼이 화면에 고정 안 되는 문제 수정
 
 PC(넓은 화면, `sm:` 브레이크포인트)에서는 하단 버튼(성향 테스트 시작하기 등)이 화면 맨 아래 고정돼
