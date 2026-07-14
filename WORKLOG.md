@@ -1,5 +1,37 @@
 # 작업 로그
 
+## 2026-07-14 — 실기기(모바일)에서 하단 액션 버튼이 화면에 고정 안 되는 문제 수정
+
+PC(넓은 화면, `sm:` 브레이크포인트)에서는 하단 버튼(성향 테스트 시작하기 등)이 화면 맨 아래 고정돼
+보이지만, 모바일 좁은 화면에서는 버튼이 콘텐츠 중간에 놓이고 그 아래로 더 스크롤되는 현상 발견.
+원인: `BottomBar`가 `position:absolute bottom-0`인데, 각 화면(`InputScreen`/`CoursesScreen`/
+`SavedCourseDetailScreen`)의 루트 div에 `relative`가 없어서 두 단계 위인 `PhoneShell`의 `<section>`
+을 기준으로 위치가 잡히던 구조 — WebKit에서 이 다단 중첩이 신뢰성 있게 계산되지 않는 것으로 보임
+(이번 세션에서 RegionPicker/SwapSheet/지도 클리핑까지 같은 계열의 문제를 반복적으로 겪음).
+`PersonalityScreen`은 아예 `min-h-screen`(콘텐츠에 따라 늘어나는 컨테이너) 구조라 버튼이 뷰포트
+하단이 아니라 콘텐츠 끝에 붙는 구조적 문제도 별도로 있었음.
+
+- **`src/App.jsx`**: `InputScreen`/`CoursesScreen`/`SavedCoursesScreen`/`SavedCourseDetailScreen`의
+  루트 컨테이너에 `relative` 추가 — `BottomBar`의 containing block을 바로 위 화면 자신으로 단축.
+- **`PersonalityScreen`**: `min-h-screen` 늘어나는 구조 → `InputScreen`과 동일한 `h-[100dvh]`
+  고정 높이 + 내부 `flex-1 overflow-y-auto` 스크롤 구조로 재구성.
+- 검증: JS로 뷰포트 높이(812)와 `document.documentElement.scrollHeight`, 버튼/BottomBar의
+  `getBoundingClientRect()`를 비교해 InputScreen·PersonalityScreen 둘 다 문서 전체 높이가
+  뷰포트와 정확히 일치(추가 스크롤 없음)하고 버튼이 뷰포트 맨 아래에 정확히 붙는 것 확인.
+  빌드 정상, 콘솔 에러 없음.
+
+## 2026-07-14 — 스플래시 버튼 겹침 수정 + 코스 화면 스크롤 인디케이터 추가
+
+- **`src/App.jsx` (`Splash`)**: "시작하기" 버튼이 실기기 스크린샷에서 배경 일러스트(파라솔·의자)를
+  가리는 문제 발견. 버튼 높이 64px→56px로 줄이고, 하단 "성향 테스트 미니앱 · 여름 챌린지" 문구를
+  삭제해 그 공간만큼 버튼이 아래로 내려가도록 함(flex-1 레이아웃이라 자동으로 버튼이 내려감).
+- **`src/App.jsx` (`CoursesScreen`)**: 코스 상세(장소 목록+지도) 스크롤 영역에 더 볼 내용이 있어도
+  아무 표시가 없어 사용자가 스크롤 가능 여부를 몰랐던 문제. `ScrollGutter` 컴포넌트(신규) 추가 —
+  스크롤 컨테이너의 `scroll`/`resize`/`ResizeObserver` 이벤트를 관찰해 오른쪽 여백에 얇은 회색
+  막대(스크롤 위치·비율 반영)를 표시. 콘텐츠가 뷰포트보다 클 때만 표시, 끝까지 스크롤하면 막대가
+  트랙 맨 아래로 이동하는 것까지 JS로 좌표 검증 완료.
+- 빌드 정상, 두 변경 모두 콘솔 에러 없음.
+
 ## 2026-07-14 — 실기기(iPhone/토스 웹뷰) 지역 선택 반복 초기화 버그 대응: RegionPicker/SwapSheet를 포털로 전환
 
 실기기(iPhone 17, 토스 앱) QR 테스트 중 발견: "인천" 선택 후 "마니산" 같은 여행지를 탭하면

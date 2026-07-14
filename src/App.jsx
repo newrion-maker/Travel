@@ -427,10 +427,9 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
           여름 여행 코스를 짜드려요
         </p>
       </div>
-      <button onClick={onStart} className="relative z-10 h-16 rounded-[17px] bg-white font-extrabold text-teal-deep shadow-[0_12px_26px_rgba(0,102,108,0.18)]">
+      <button onClick={onStart} className="relative z-10 h-14 rounded-[17px] bg-white font-extrabold text-teal-deep shadow-[0_12px_26px_rgba(0,102,108,0.18)]">
         시작하기
       </button>
-      <p className="relative z-10 mt-5 text-center text-xs font-semibold text-white/78">성향 테스트 미니앱 · 여름 챌린지</p>
     </div>
   )
 }
@@ -646,7 +645,7 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   // 받아 시트가 바로 재오픈되는 현상 방지용 가드(닫힘 시각을 기록해 짧은 시간 내 재오픈 무시).
   const regionClosedAtRef = useRef(0)
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="여행 정보" onBack={onBack} />
       <div className="flex-1 overflow-y-auto px-4 pb-[calc(204px+env(safe-area-inset-bottom))] pt-3">
         <h2 className="whitespace-pre-line text-[22px] font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
@@ -785,22 +784,24 @@ function PersonalityScreen({ personality, onHome, onNext }) {
   const tone = accentClass[personality.accent]
   const resultImage = personalityImages[personality.top] ?? personalitySight
   return (
-    <div className="flex min-h-screen flex-col px-5 pb-[220px] pt-[68px] text-center sm:min-h-[860px]">
-      <HomeButton onClick={onHome} className="absolute right-4 top-5" />
-      <div className="mx-auto rounded-full bg-teal-tint px-4 py-2 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
-      <img
-        src={resultImage}
-        alt="성향 결과 이미지"
-        className="mx-auto mt-9 h-[132px] w-[132px] rounded-[30px] object-contain shadow-card-soft"
-      />
-      <p className="mt-8 text-sm font-bold text-ink-2">당신의 여름 여행 성향은</p>
-      <h2 className={`mt-2 text-[30px] font-extrabold ${tone.text}`}>{personality.label}</h2>
-      <div className="mt-6 rounded-card bg-white px-5 py-5 text-[14.5px] font-medium leading-relaxed text-[#3E4C51] shadow-card-soft">
-        {personality.desc[0]}
-        <b className={tone.text}>{personality.desc[1]}</b>
-        {personality.desc[2]}
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col text-center sm:min-h-[860px]">
+      <HomeButton onClick={onHome} className="absolute right-4 top-5 z-20" />
+      <div className="flex-1 overflow-y-auto px-5 pb-[calc(220px+env(safe-area-inset-bottom))] pt-[68px]">
+        <div className="mx-auto rounded-full bg-teal-tint px-4 py-2 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
+        <img
+          src={resultImage}
+          alt="성향 결과 이미지"
+          className="mx-auto mt-9 h-[132px] w-[132px] rounded-[30px] object-contain shadow-card-soft"
+        />
+        <p className="mt-8 text-sm font-bold text-ink-2">당신의 여름 여행 성향은</p>
+        <h2 className={`mt-2 text-[30px] font-extrabold ${tone.text}`}>{personality.label}</h2>
+        <div className="mt-6 rounded-card bg-white px-5 py-5 text-[14.5px] font-medium leading-relaxed text-[#3E4C51] shadow-card-soft">
+          {personality.desc[0]}
+          <b className={tone.text}>{personality.desc[1]}</b>
+          {personality.desc[2]}
+        </div>
+        <BudgetPreview ratios={personality.ratios} className="mt-8" />
       </div>
-      <BudgetPreview ratios={personality.ratios} className="mt-8" />
       <BottomBar ad>
         <PrimaryButton onClick={onNext}>내 맞춤 코스 보기</PrimaryButton>
       </BottomBar>
@@ -828,7 +829,53 @@ function LoadingScreen() {
   )
 }
 
+function ScrollGutter({ containerRef }) {
+  const [state, setState] = useState({ show: false, topPct: 0, heightPct: 100 })
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return undefined
+
+    const update = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el
+      if (scrollHeight <= clientHeight + 1) {
+        setState((prev) => (prev.show ? { show: false, topPct: 0, heightPct: 100 } : prev))
+        return
+      }
+      const heightPct = Math.max(10, (clientHeight / scrollHeight) * 100)
+      const maxTop = 100 - heightPct
+      const topPct = maxTop > 0 ? (scrollTop / (scrollHeight - clientHeight)) * maxTop : 0
+      setState({ show: true, topPct, heightPct })
+    }
+
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+
+    return () => {
+      el.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+      ro.disconnect()
+    }
+  }, [containerRef])
+
+  if (!state.show) return null
+
+  return (
+    <div className="pointer-events-none absolute right-1 top-0 z-10 h-full w-1 py-1">
+      <div
+        className="absolute right-0 w-1 rounded-full bg-black/18"
+        style={{ top: `${state.topPct}%`, height: `${state.heightPct}%` }}
+      />
+    </div>
+  )
+}
+
 function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
+  const scrollRef = useRef(null)
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
   const [saveStatus, setSaveStatus] = useState('')
@@ -892,7 +939,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   }
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.regionLabel || input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
       <div className="px-4 pt-2">
         <div className="grid rounded-[14px] bg-[#E9EEEE] p-1" style={{ gridTemplateColumns: `repeat(${courses.length}, minmax(0, 1fr))` }}>
@@ -911,7 +958,8 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           ))}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(280px+env(safe-area-inset-bottom))] pt-3">
+      <div className="relative min-h-0 flex-1">
+        <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-[calc(280px+env(safe-area-inset-bottom))] pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col items-start gap-2">
@@ -978,6 +1026,8 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           </div>
           <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-4" />
         </article>
+        </div>
+        <ScrollGutter containerRef={scrollRef} />
       </div>
       <BottomBar ad>
         {(editedCount > 0 || removedCount > 0) && (
@@ -1049,7 +1099,7 @@ function SavedCoursesScreen({ onOpen, onBack, onHome }) {
   const [list, setList] = useState(() => getSavedCourses())
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="저장한 코스" onBack={onBack} onHome={onHome} />
       <div className="flex-1 overflow-y-auto px-4 pb-8 pt-3">
         {list.length === 0 ? (
@@ -1093,7 +1143,7 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
   const currentDay = dayPlans[Math.min(activeDay, dayPlans.length - 1)]
 
   return (
-    <div className="flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
+    <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:min-h-[860px]">
       <Header title="저장한 코스" onBack={onBack} onHome={onHome} right={`${entry.regionLabel} · ${entry.period} · ${entry.arrivalTime} 도착`} />
       <div className="flex-1 overflow-y-auto px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
