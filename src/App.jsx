@@ -726,12 +726,12 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           </div>
           <p className="mt-2 text-[12.5px] font-medium text-ink-3">교통비를 제외하고, 여행지에서 쓸 전체 인원 합산 금액을 입력해주세요.</p>
         </Field>
+        <BottomBar ad>
+          <PrimaryButton disabled={!canContinue} onClick={onNext}>
+            성향 테스트 시작하기
+          </PrimaryButton>
+        </BottomBar>
       </div>
-      <BottomBar ad>
-        <PrimaryButton disabled={!canContinue} onClick={onNext}>
-          성향 테스트 시작하기
-        </PrimaryButton>
-      </BottomBar>
     </div>
   )
 }
@@ -801,10 +801,10 @@ function PersonalityScreen({ personality, onHome, onNext }) {
           {personality.desc[2]}
         </div>
         <BudgetPreview ratios={personality.ratios} className="mt-8" />
+        <BottomBar ad>
+          <PrimaryButton onClick={onNext}>내 맞춤 코스 보기</PrimaryButton>
+        </BottomBar>
       </div>
-      <BottomBar ad>
-        <PrimaryButton onClick={onNext}>내 맞춤 코스 보기</PrimaryButton>
-      </BottomBar>
     </div>
   )
 }
@@ -1026,55 +1026,55 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           </div>
           <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-4" />
         </article>
+        <BottomBar ad>
+          {(editedCount > 0 || removedCount > 0) && (
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-[12px] bg-amber/10 px-3 py-2">
+              <span className="text-[11px] font-semibold leading-snug text-amber-text">{changeNote} · 공유 링크엔 AI 기본 코스가 담겨요</span>
+              <button type="button" onClick={resetCourse} className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-teal-deep">
+                되돌리기
+              </button>
+            </div>
+          )}
+          {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
+          {saveStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{saveStatus}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                saveCourse({ input, course: effectiveCourse })
+                setSaveStatus('코스를 저장했어요')
+                window.setTimeout(() => setSaveStatus(''), 1800)
+              }}
+              className="h-[52px] flex-1 rounded-btn border-[1.5px] border-teal bg-white text-[14px] font-extrabold text-teal-deep"
+            >
+              저장하기
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const cityName = input.regionLabel || input.region.split(' ').at(-1)
+                const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl })
+                if (navigator.share) {
+                  try {
+                    await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: shareUrl })
+                    return
+                  } catch (err) {
+                    if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소
+                  }
+                }
+                const copied = await copyTextToClipboard(shareMessage)
+                setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
+                window.setTimeout(() => setShareStatus(''), 1800)
+              }}
+              className="h-[52px] flex-[1.4] rounded-btn bg-teal text-[15px] font-extrabold text-white shadow-cta"
+            >
+              코스 공유하기
+            </button>
+          </div>
+        </BottomBar>
         </div>
         <ScrollGutter containerRef={scrollRef} />
       </div>
-      <BottomBar ad>
-        {(editedCount > 0 || removedCount > 0) && (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-[12px] bg-amber/10 px-3 py-2">
-            <span className="text-[11px] font-semibold leading-snug text-amber-text">{changeNote} · 공유 링크엔 AI 기본 코스가 담겨요</span>
-            <button type="button" onClick={resetCourse} className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-teal-deep">
-              되돌리기
-            </button>
-          </div>
-        )}
-        {shareStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{shareStatus}</p>}
-        {saveStatus && <p className="mb-2 text-center text-[12px] font-extrabold text-teal-deep">{saveStatus}</p>}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              saveCourse({ input, course: effectiveCourse })
-              setSaveStatus('코스를 저장했어요')
-              window.setTimeout(() => setSaveStatus(''), 1800)
-            }}
-            className="h-[52px] flex-1 rounded-btn border-[1.5px] border-teal bg-white text-[14px] font-extrabold text-teal-deep"
-          >
-            저장하기
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              const cityName = input.regionLabel || input.region.split(' ').at(-1)
-              const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl })
-              if (navigator.share) {
-                try {
-                  await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: shareUrl })
-                  return
-                } catch (err) {
-                  if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소
-                }
-              }
-              const copied = await copyTextToClipboard(shareMessage)
-              setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
-              window.setTimeout(() => setShareStatus(''), 1800)
-            }}
-            className="h-[52px] flex-[1.4] rounded-btn bg-teal text-[15px] font-extrabold text-white shadow-cta"
-          >
-            코스 공유하기
-          </button>
-        </div>
-      </BottomBar>
       <SwapSheet
         open={Boolean(swapTarget)}
         currentPlace={swapCurrent}
@@ -1200,12 +1200,12 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
           </div>
           <MapPreview places={currentDay.places} source={course.source} className="mt-4" />
         </article>
+        <BottomBar>
+          <button type="button" onClick={onDelete} className="h-[52px] w-full rounded-btn border-[1.5px] border-line text-[14px] font-extrabold text-ink-2">
+            저장 삭제하기
+          </button>
+        </BottomBar>
       </div>
-      <BottomBar>
-        <button type="button" onClick={onDelete} className="h-[52px] w-full rounded-btn border-[1.5px] border-line text-[14px] font-extrabold text-ink-2">
-          저장 삭제하기
-        </button>
-      </BottomBar>
     </div>
   )
 }
@@ -1367,7 +1367,7 @@ function AdBanner({ className = '' }) {
 
 function BottomBar({ children, ad = false }) {
   return (
-    <div className="relative z-30 shrink-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+    <div className="mt-6 border-t border-line-footer pb-[calc(12px+env(safe-area-inset-bottom))] pt-4">
       {children}
       {ad && <AdBanner className="mt-3" />}
     </div>
