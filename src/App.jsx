@@ -726,12 +726,13 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           </div>
           <p className="mt-2 text-[12.5px] font-medium text-ink-3">교통비를 제외하고, 여행지에서 쓸 전체 인원 합산 금액을 입력해주세요.</p>
         </Field>
-        <BottomBar ad>
+        <BottomBar>
           <PrimaryButton disabled={!canContinue} onClick={onNext}>
             성향 테스트 시작하기
           </PrimaryButton>
         </BottomBar>
       </div>
+      <AdDock />
     </div>
   )
 }
@@ -801,10 +802,11 @@ function PersonalityScreen({ personality, onHome, onNext }) {
           {personality.desc[2]}
         </div>
         <BudgetPreview ratios={personality.ratios} className="mt-8" />
-        <BottomBar ad>
+        <BottomBar>
           <PrimaryButton onClick={onNext}>내 맞춤 코스 보기</PrimaryButton>
         </BottomBar>
       </div>
+      <AdDock />
     </div>
   )
 }
@@ -1026,7 +1028,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           </div>
           <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-4" />
         </article>
-        <BottomBar ad>
+        <BottomBar>
           {(editedCount > 0 || removedCount > 0) && (
             <div className="mb-2 flex items-center justify-between gap-2 rounded-[12px] bg-amber/10 px-3 py-2">
               <span className="text-[11px] font-semibold leading-snug text-amber-text">{changeNote} · 공유 링크엔 AI 기본 코스가 담겨요</span>
@@ -1075,6 +1077,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         </div>
         <ScrollGutter containerRef={scrollRef} />
       </div>
+      <AdDock />
       <SwapSheet
         open={Boolean(swapTarget)}
         currentPlace={swapCurrent}
@@ -1365,11 +1368,20 @@ function AdBanner({ className = '' }) {
   )
 }
 
-function BottomBar({ children, ad = false }) {
+function BottomBar({ children }) {
   return (
-    <div className="mt-6 border-t border-line-footer pb-[calc(12px+env(safe-area-inset-bottom))] pt-4">
+    <div className="mt-6 border-t border-line-footer pb-4 pt-4">
       {children}
-      {ad && <AdBanner className="mt-3" />}
+    </div>
+  )
+}
+
+// 광고는 화면 진입 시점부터 항상 노출돼야 해서(스크롤 여부와 무관), 스크롤 콘텐츠와
+// 분리된 별도 자리에 고정 배치한다 — 폼/코스 내용만 그 위에서 스크롤된다.
+function AdDock() {
+  return (
+    <div className="shrink-0 border-t border-line-footer bg-screen/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+      <AdBanner />
     </div>
   )
 }
