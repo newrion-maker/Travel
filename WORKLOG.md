@@ -1,5 +1,19 @@
 # 작업 로그
 
+## 2026-07-09 — 프론트/백엔드 분리 배포 대비: CORS + 백엔드 절대 URL 아키텍처
+
+앱인토스 실기기 테스트 공식 문서(`development/test/toss.html`) 확인 중 발견: `ait deploy`로 배포하면
+프론트는 **토스 소유 도메인**(`https://<appName>.private-apps.tossmini.com`)에서 서빙되고, 우리
+백엔드(Render)는 별도 도메인이다. 기존 코드는 `/api/*` 상대경로로만 호출해서, 배포하면 API 요청이
+전부 실패했을 문제 — 사전에 발견해 미리 고침.
+
+- **`src/lib/apiBase.js`(신규)**: `VITE_API_BASE_URL` 환경변수로 백엔드 절대 URL을 조립하는 `apiUrl()` 헬퍼. 로컬 개발(변수 미설정)은 기존처럼 상대경로 유지.
+- **`src/lib/tourApi.js`, `src/App.jsx`**: `fetch('/api/...')` → `fetch(apiUrl('/api/...'))`로 교체.
+- **`server/app.js`**: `ALLOWED_ORIGINS`(기본값에 토스 배포 도메인 포함, env로 추가 가능) 기반 CORS 허용 + OPTIONS 프리플라이트 처리 추가.
+- **`.env.example`, `TOSS_LAUNCH.md`**: `VITE_API_BASE_URL`/`ALLOWED_ORIGINS` 문서화, 배포 섹션을 "백엔드(Render)+프론트(앱인토스)" 2트랙 구조로 재작성.
+
+검증: curl로 CORS 허용/차단/프리플라이트 정상 확인. `VITE_API_BASE_URL` 설정 시 번들에 절대 URL이 정확히 박히고, 미설정 시(로컬) 기존처럼 상대경로 유지되는 것 빌드 결과물로 직접 확인. 브라우저에서 전체 플로우(입력→성향테스트→코스생성) 재검증, 콘솔 에러 없음, `/api/*` 요청 전부 200.
+
 ## 2026-07-09 — 여름 챌린지 테마 강화: 성향 테스트 리스킨 + 여름 인기 여행지 퀵칩
 
 앱인토스 바이브코딩 챌린지("미니앱과 함께하는 여름") 심사 대비. 컨셉/로직은 그대로 두고 여름 테마를 강화.

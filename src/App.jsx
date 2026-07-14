@@ -8,6 +8,7 @@ import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
 import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
 import { getSavedCourses, saveCourse, removeSavedCourse } from './lib/savedCourses.js'
+import { apiUrl } from './lib/apiBase.js'
 import { TossAds } from '@apps-in-toss/web-framework'
 import splashBackground from './assets/splash-background.jpg'
 import splashTravel from './assets/splash-travel.webp'
@@ -237,7 +238,7 @@ export default function App() {
       itemsPerDay: (c.days || []).map((d) => d.places.length),
     }))
 
-    fetch('/api/ai-plan', {
+    fetch(apiUrl('/api/ai-plan'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ input, personality, places: verifiedPlaces, courses: courseMetas }),

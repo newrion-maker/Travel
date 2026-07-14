@@ -35,6 +35,31 @@ function loadLocalEnv() {
 
 loadLocalEnv()
 
+// 앱인토스 WebView 배포 시 프론트는 https://<appName>.private-apps.tossmini.com 에서 열리고
+// 이 서버(백엔드)는 별도 도메인(Render 등)이라 CORS 허용이 없으면 /api/* 호출이 전부 막힌다.
+// ALLOWED_ORIGINS 환경변수(콤마 구분)로 배포 도메인을 추가할 수 있다.
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5181',
+  'http://127.0.0.1:5175',
+  'https://budgettrip.private-apps.tossmini.com',
+]
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...envOrigins])
+
+function applyCors(req, res) {
+  const origin = req.headers.origin
+  if (!origin || !ALLOWED_ORIGINS.has(origin)) return
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Vary', 'Origin')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+}
+
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -208,6 +233,12 @@ createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
   if (url.pathname.startsWith('/api/')) {
+    applyCors(req, res)
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204)
+      res.end()
+      return
+    }
     await handleApi(req, res, url)
     return
   }
