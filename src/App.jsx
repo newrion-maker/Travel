@@ -10,7 +10,7 @@ import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
 import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
 import { getSavedCourses, saveCourse, removeSavedCourse } from './lib/savedCourses.js'
 import { apiUrl } from './lib/apiBase.js'
-import { TossAds, loadFullScreenAd, showFullScreenAd, getTossShareLink } from '@apps-in-toss/web-framework'
+import { TossAds, loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/web-framework'
 import splashBackground from './assets/splash-background.jpg'
 import splashTravel from './assets/splash-travel.webp'
 import personalityFood from './assets/personality-food.webp'
@@ -86,39 +86,6 @@ function readSharedState() {
   }
 }
 
-function buildShareParams({ input, answers, active }) {
-  const params = new URLSearchParams()
-  params.set('view', 'courses')
-  params.set('r', input.region)
-  if (input.regionLabel && input.regionLabel !== input.region) params.set('rl', input.regionLabel)
-  params.set('p', input.period)
-  params.set('party', String(input.party))
-  params.set('arr', input.arrivalTime)
-  params.set('b', String(input.budget))
-  params.set('ans', QUESTIONS.map((question) => answers[question.id] || '').join(''))
-  params.set('c', String(active))
-  return params
-}
-
-function buildShareUrl({ input, answers, active }) {
-  const url = new URL(window.location.href)
-  url.search = buildShareParams({ input, answers, active }).toString()
-  return url.toString()
-}
-
-// 앱 안에서 window.location.href로 만든 링크는 토스 도메인(private-apps.tossmini.com)
-// 그대로라 외부에서 클릭하면 CloudFront 서명이 없어 열리지 않는다("Missing Key-Pair-Id").
-// getTossShareLink(intoss:// 딥링크)로 만든 정식 공유 링크라야 외부에서도(앱스토어 폴백 포함) 열린다.
-// 토스 앱 밖(로컬/사파리)이거나 브리지를 못 쓰면 null을 반환해 호출부가 기존 shareUrl로 대체하게 한다.
-async function buildTossShareLink({ input, answers, active }) {
-  const params = buildShareParams({ input, answers, active })
-  try {
-    return (await getTossShareLink(`intoss://budgettrip/?${params.toString()}`)) || null
-  } catch {
-    return null
-  }
-}
-
 function compactPlaceForAi(place) {
   return {
     name: place.name,
@@ -146,7 +113,7 @@ function compactCourseForAi(course) {
   }
 }
 
-function buildCourseShareMessage({ input, course, days, shareUrl }) {
+function buildCourseShareMessage({ input, course, days }) {
   const cityName = input.regionLabel || input.region.split(' ').at(-1)
   const title = `${cityName} ${input.period} ${course.label} 코스`
   const lines = [title, '']
@@ -157,7 +124,7 @@ function buildCourseShareMessage({ input, course, days, shareUrl }) {
     lines.push(`${index + 1}일차: ${places.map((place) => place.name).join(', ')}`)
   })
 
-  lines.push('', `예상 비용 ${course.budget}`, '', '내 코스 보기', shareUrl)
+  lines.push('', `예상 비용 ${course.budget}`)
   return lines.join('\n')
 }
 
@@ -364,7 +331,6 @@ export default function App() {
         {screen === 'courses' && (
           <CoursesScreen
             input={input}
-            answers={answers}
             courses={courses}
             tourPlaces={tourPlaces}
             aiPlans={aiPlans}
@@ -373,7 +339,6 @@ export default function App() {
             onActive={setActiveCourse}
             onHome={goHome}
             onBack={() => setScreen('personality')}
-            shareUrl={buildShareUrl({ input, answers, active: activeCourse })}
           />
         )}
         {screen === 'savedList' && (
@@ -902,7 +867,7 @@ function ScrollGutter({ containerRef }) {
   )
 }
 
-function CoursesScreen({ input, answers, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
+function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome }) {
   const scrollRef = useRef(null)
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
@@ -1084,19 +1049,17 @@ function CoursesScreen({ input, answers, courses, tourPlaces, aiPlans, aiPlanSou
               aria-label="코스 공유하기"
               onClick={async () => {
                 const cityName = input.regionLabel || input.region.split(' ').at(-1)
-                const tossLink = await buildTossShareLink({ input, answers, active: activeIndex })
-                const finalShareUrl = tossLink || shareUrl
-                const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl: finalShareUrl })
+                const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays })
                 if (navigator.share) {
                   try {
-                    await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: finalShareUrl })
+                    await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage })
                     return
                   } catch (err) {
                     if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소
                   }
                 }
                 const copied = await copyTextToClipboard(shareMessage)
-                setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
+                setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요')
                 window.setTimeout(() => setShareStatus(''), 1800)
               }}
               className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-btn bg-teal text-white shadow-cta"

@@ -1,5 +1,23 @@
 # 작업 로그
 
+## 2026-07-14 — 공유 메시지에서 링크 제거, 순수 텍스트로 단순화
+
+방금 넣은 `getTossShareLink` 딥링크 공유가 실기기에서 "정상적으로 작동 안 됨" + 사용자가 원하는
+공유 형식이 애초에 링크 없이 제목/일차별 장소/예상 비용만 있는 단순한 텍스트라는 것 확인 — 링크
+안정성 문제를 계속 파고드는 대신, 링크 자체를 공유 메시지에서 완전히 제거하는 쪽으로 방향 전환.
+
+- **`buildCourseShareMessage`**: `shareUrl`/"내 코스 보기" 줄 제거 — 이제 제목, 빈 줄, 일차별
+  장소 목록, 빈 줄, 예상 비용만 남음(사용자가 첨부한 예시와 동일 포맷).
+- **`CoursesScreen`**: 공유 버튼 onClick에서 `getTossShareLink`/`buildTossShareLink` 호출과
+  `navigator.share`의 `url` 필드 제거 — `text`만 공유. 클립보드 폴백 메시지도 "주소창 링크를
+  복사해주세요" 문구 제거(더 이상 해당 없음).
+- **정리**: 이제 안 쓰는 `buildShareParams`/`buildShareUrl`/`buildTossShareLink` 함수와
+  `getTossShareLink` import, `CoursesScreen`의 `shareUrl`/`answers` prop(딥링크 조립에만 쓰였음)
+  전부 제거 — 번들 약 2KB 감소.
+- 검증: 부산 해운대·1박2일로 코스 생성 후 공유 클릭 → 클립보드에 복사된 텍스트가 정확히
+  "도시 기간 코스명 / 빈줄 / 1일차: ... / 2일차: ... / 빈줄 / 예상 비용 ..." 포맷인 것 확인,
+  콘솔 에러 없음, 빌드 정상(번들 크기도 줄어듦).
+
 ## 2026-07-14 — 스크롤 인디케이터를 InputScreen/PersonalityScreen/SavedCourseDetailScreen에도 확대 적용
 
 실기기(안드로이드) 스크린샷에서 InputScreen 하단(인원수/예산 필드)이 화면 밖에 있는데 스크롤
