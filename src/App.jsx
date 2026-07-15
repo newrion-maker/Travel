@@ -429,7 +429,7 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
       </div>
       <button
         onClick={onStart}
-        className="relative z-10 py-2 text-[19px] font-extrabold text-white underline underline-offset-[6px] decoration-2"
+        className="relative z-10 py-2 text-[16px] font-semibold text-white underline underline-offset-[6px]"
       >
         시작하기
       </button>
@@ -1058,6 +1058,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
             </button>
             <button
               type="button"
+              aria-label="코스 공유하기"
               onClick={async () => {
                 const cityName = input.regionLabel || input.region.split(' ').at(-1)
                 const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl })
@@ -1073,9 +1074,13 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
                 setShareStatus(copied ? '공유 메시지를 복사했어요' : '복사가 막혔어요. 주소창 링크를 복사해주세요')
                 window.setTimeout(() => setShareStatus(''), 1800)
               }}
-              className="h-[52px] flex-[1.4] rounded-btn bg-teal text-[15px] font-extrabold text-white shadow-cta"
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-btn bg-teal text-white shadow-cta"
             >
-              코스 공유하기
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12" />
+                <path d="M7 8l5-5 5 5" />
+                <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+              </svg>
             </button>
           </div>
         </BottomBar>
