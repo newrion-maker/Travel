@@ -320,14 +320,20 @@ function orderFirstDayPlaces(places, arrivalTime) {
 }
 
 // 각 장소에 일정표용 역할(점심/카페/숙박/관광 등)을 부여한다. 정확한 시각이 아니라 '역할·끼니' 기준.
+// 끼니(점심/저녁 등) 슬롯은 이름이 카페처럼 보여도 우선 채운다 — 후보가 카페/디저트 위주로 몰리면
+// "점심"이 하나도 안 나오고 카페만 나열되는 문제가 있었음(끼니 채움보다 카페 이름 매칭이 먼저 걸림).
+// 끼니 슬롯을 넘어서는 추가 식음료 장소만 "카페"/"마무리 카페"로 분류한다.
 function assignDayRoles(dayPlaces, day, arrivalTime) {
   const meals = day === 1 ? (arrivalTime === '저녁' ? ['저녁'] : ['점심', '저녁']) : ['아침', '점심', '저녁']
   let mealIdx = 0
   const isCafe = (p) => p.icon === '카' || /카페|커피|디저트|베이커리|빵집|젤라또|아이스크림|로스터리|방앗간/u.test(`${p.name} ${p.tag || ''} ${p.kakaoCategory || ''}`)
   const lastNonStayIdx = dayPlaces.reduce((last, p, i) => (p.kind !== 'stay' ? i : last), -1)
+  const foodIndices = dayPlaces.reduce((acc, p, i) => (p.kind === 'food' ? [...acc, i] : acc), [])
+  const mealSlotIndices = new Set(foodIndices.slice(0, meals.length))
   return dayPlaces.map((p, i) => {
     let role
     if (p.kind === 'stay') role = '숙박'
+    else if (p.kind === 'food' && mealSlotIndices.has(i)) role = meals[mealIdx++]
     else if (p.kind === 'food' && isCafe(p)) role = i === lastNonStayIdx ? '마무리 카페' : '카페'
     else if (p.kind === 'food') role = meals[Math.min(mealIdx++, meals.length - 1)]
     else if (p.icon === '체') role = '체험'

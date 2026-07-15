@@ -127,6 +127,17 @@ function normalizeRoleForArrival(role, kind, day, arrivalTime) {
   return normalized || (kind === 'food' ? '점심' : '관광')
 }
 
+// AI가 첫날 식사 역할을 전부 "카페" 등으로만 붙이고 "점심"을 하나도 안 주는 경우가 있어(관측됨),
+// 저녁 도착이 아닌 첫날엔 항상 점심 하나는 있어야 한다는 원칙을 서버에서 강제 보정한다.
+// (앱 철학: 상식적인 기본 일정을 주고, 필요 없으면 유저가 직접 "빼기"로 지운다.)
+function ensureLunchRole(dayPlaces, day, arrivalTime) {
+  if (day !== 1 || arrivalTime === '저녁') return dayPlaces
+  if (dayPlaces.some((p) => p.role === '점심')) return dayPlaces
+  const idx = dayPlaces.findIndex((p) => p.kind === 'food' && p.role !== '저녁' && p.role !== '마무리 카페')
+  if (idx === -1) return dayPlaces
+  return dayPlaces.map((p, i) => (i === idx ? { ...p, role: '점심' } : p))
+}
+
 function roleOrder(place) {
   const role = String(place.role || '')
   if (place.kind === 'stay' || role.includes('숙박')) return 90
@@ -143,12 +154,12 @@ function roleOrder(place) {
 }
 
 function sortDayPlacesByTimeFlow(dayPlaces, day, arrivalTime) {
-  return dayPlaces
-    .map((place, index) => ({
-      ...place,
-      role: normalizeRoleForArrival(place.role, place.kind, day, arrivalTime),
-      originalIndex: index,
-    }))
+  const normalized = dayPlaces.map((place) => ({
+    ...place,
+    role: normalizeRoleForArrival(place.role, place.kind, day, arrivalTime),
+  }))
+  return ensureLunchRole(normalized, day, arrivalTime)
+    .map((place, index) => ({ ...place, originalIndex: index }))
     .sort((a, b) => roleOrder(a) - roleOrder(b) || a.originalIndex - b.originalIndex)
     .map(({ originalIndex, ...place }, index) => ({
       ...place,
