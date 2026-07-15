@@ -10,7 +10,7 @@ import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
 import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
 import { getSavedCourses, saveCourse, removeSavedCourse } from './lib/savedCourses.js'
 import { apiUrl } from './lib/apiBase.js'
-import { TossAds, loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/web-framework'
+import { TossAds, loadFullScreenAd, showFullScreenAd, getTossShareLink } from '@apps-in-toss/web-framework'
 import splashBackground from './assets/splash-background.jpg'
 import splashTravel from './assets/splash-travel.webp'
 import personalityFood from './assets/personality-food.webp'
@@ -86,8 +86,7 @@ function readSharedState() {
   }
 }
 
-function buildShareUrl({ input, answers, active }) {
-  const url = new URL(window.location.href)
+function buildShareParams({ input, answers, active }) {
   const params = new URLSearchParams()
   params.set('view', 'courses')
   params.set('r', input.region)
@@ -98,8 +97,26 @@ function buildShareUrl({ input, answers, active }) {
   params.set('b', String(input.budget))
   params.set('ans', QUESTIONS.map((question) => answers[question.id] || '').join(''))
   params.set('c', String(active))
-  url.search = params.toString()
+  return params
+}
+
+function buildShareUrl({ input, answers, active }) {
+  const url = new URL(window.location.href)
+  url.search = buildShareParams({ input, answers, active }).toString()
   return url.toString()
+}
+
+// 앱 안에서 window.location.href로 만든 링크는 토스 도메인(private-apps.tossmini.com)
+// 그대로라 외부에서 클릭하면 CloudFront 서명이 없어 열리지 않는다("Missing Key-Pair-Id").
+// getTossShareLink(intoss:// 딥링크)로 만든 정식 공유 링크라야 외부에서도(앱스토어 폴백 포함) 열린다.
+// 토스 앱 밖(로컬/사파리)이거나 브리지를 못 쓰면 null을 반환해 호출부가 기존 shareUrl로 대체하게 한다.
+async function buildTossShareLink({ input, answers, active }) {
+  const params = buildShareParams({ input, answers, active })
+  try {
+    return (await getTossShareLink(`intoss://budgettrip/?${params.toString()}`)) || null
+  } catch {
+    return null
+  }
 }
 
 function compactPlaceForAi(place) {
@@ -347,6 +364,7 @@ export default function App() {
         {screen === 'courses' && (
           <CoursesScreen
             input={input}
+            answers={answers}
             courses={courses}
             tourPlaces={tourPlaces}
             aiPlans={aiPlans}
@@ -879,7 +897,7 @@ function ScrollGutter({ containerRef }) {
   )
 }
 
-function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
+function CoursesScreen({ input, answers, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome, shareUrl }) {
   const scrollRef = useRef(null)
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
@@ -1061,10 +1079,12 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
               aria-label="코스 공유하기"
               onClick={async () => {
                 const cityName = input.regionLabel || input.region.split(' ').at(-1)
-                const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl })
+                const tossLink = await buildTossShareLink({ input, answers, active: activeIndex })
+                const finalShareUrl = tossLink || shareUrl
+                const shareMessage = buildCourseShareMessage({ input, course, days: effectiveDays, shareUrl: finalShareUrl })
                 if (navigator.share) {
                   try {
-                    await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: shareUrl })
+                    await navigator.share({ title: `${cityName} 여행 코스`, text: shareMessage, url: finalShareUrl })
                     return
                   } catch (err) {
                     if (err?.name === 'AbortError') return // 사용자가 공유 시트 취소

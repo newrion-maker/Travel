@@ -1,5 +1,31 @@
 # 작업 로그
 
+## 2026-07-14 — 공유 링크가 외부에서 안 열리는 버그 수정 (getTossShareLink 도입)
+
+실기기 QR 테스트로 카카오톡 공유까지는 성공했는데, 카카오톡에 뜬 링크
+(`https://budgettrip.private-apps.tossmini.com/?view=courses&...`)를 누르면
+**"MissingKeyMissing Key-Pair-Id query parameter or cookie value"** 에러 페이지가 뜨는 것 발견.
+이건 AWS CloudFront가 서명된 URL/쿠키 없이는 접근을 막는 표준 에러 — `window.location.href`를
+그대로 공유 링크로 쓰고 있었는데, `private-apps.tossmini.com` 도메인은 토스 앱이 내부적으로
+로드할 때만(서명된 세션으로) 열리는 구조라, 카카오톡 등 외부에서 그 링크를 그냥 클릭하면 항상
+이 에러가 나는 구조적 문제였음.
+
+앱인토스 공식 문서(`developers-apps-in-toss.toss.im`)에서 정확한 해법 확인: `getTossShareLink(path,
+ogImageUrl?)` — `intoss://<앱이름>/...` 형식의 딥링크 경로를 넘기면, 토스 앱 설치 여부와 무관하게
+외부에서도 정상적으로 열리는(미설치 시 스토어로 폴백) 정식 공유 링크를 만들어주는 전용 API.
+
+- **`src/App.jsx`**: 쿼리 파라미터 조립 로직을 `buildShareParams`로 분리(중복 제거). 신규
+  `buildTossShareLink({input, answers, active})` — `getTossShareLink('intoss://budgettrip/?...')`
+  호출, 실패(토스 앱 밖이거나 브리지 미지원)하면 `null` 반환. `CoursesScreen`의 "코스 공유하기"
+  버튼 클릭 시 이 함수를 먼저 시도하고, 실패하면 기존 `shareUrl`(raw href 기반)로 대체.
+  `CoursesScreen`에 `answers` prop 추가(딥링크 파라미터 조립에 필요).
+- 검증: 로컬(토스 앱 밖) 환경에서 `getTossShareLink` 호출이 예상대로 실패 → 기존 `shareUrl`로
+  정상 폴백, 클립보드에 올바른 메시지 복사되는 것 확인, 콘솔 에러 없음, 빌드 정상. 실제 `intoss://`
+  딥링크 공유 링크가 외부에서 정상 열리는지는 토스 앱 안에서만 검증 가능 — `.ait` 재빌드 후
+  카카오톡 공유 → 링크 클릭까지 재확인 필요.
+
+Sources: [토스앱 공유 링크 | 앱인토스 개발자센터](https://developers-apps-in-toss.toss.im/bedrock/reference/framework/%EA%B3%B5%EC%9C%A0/getTossShareLink.html)
+
 ## 2026-07-14 — 실제 광고그룹 ID로 교체 (배너 + 전면형)
 
 앱인토스 콘솔에서 광고그룹 등록(승인까지 약 2시간) 완료 — 발급받은 실제 ID로 테스트
