@@ -10,7 +10,7 @@ import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
 import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
 import { getSavedCourses, saveCourse, removeSavedCourse } from './lib/savedCourses.js'
 import { apiUrl } from './lib/apiBase.js'
-import { TossAds } from '@apps-in-toss/web-framework'
+import { TossAds, loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/web-framework'
 import splashBackground from './assets/splash-background.jpg'
 import splashTravel from './assets/splash-travel.webp'
 import personalityFood from './assets/personality-food.webp'
@@ -1311,8 +1311,9 @@ function StepButton({ children, fill, onClick }) {
   )
 }
 
-// 앱인토스 콘솔 승인 전이라 테스트 광고그룹 ID 사용 중. 승인 후 실제 배너 광고그룹 ID로 교체할 것.
+// 앱인토스 콘솔에서 발급받은 실제 광고그룹 ID로 교체할 것 (배너/전면형 각각 별도 광고그룹).
 const BANNER_AD_GROUP_ID = 'ait-ad-test-banner-id'
+const FULLSCREEN_AD_GROUP_ID = 'ait-ad-test-fullscreen-id'
 
 // TossAds.*.isSupported()는 토스 앱 밖(일반 브라우저 등)에서 false를 반환하는 대신
 // "not a constant handler" 에러를 던진다 — 문서화되지 않은 동작이라 항상 try/catch로 방어한다.
@@ -1401,18 +1402,50 @@ function AdDock() {
 
 const AD_GATE_SECONDS = 5
 
-// 목업 광고 게이트: 실제 앱인토스 IAA SDK 연동 전까지, 타이머로 "광고 시청"을 흉내낸다.
+// 전면형 광고 게이트: 앱인토스 안에서는 실제 전면 광고(loadFullScreenAd/showFullScreenAd)를 띄우고,
+// 광고 시청/닫힘 시 onComplete로 진행한다. 앱인토스 밖(로컬·사파리 테스트)에서는 실제 광고를
+// 붙일 수 없으므로 타이머로 "광고 시청"을 흉내낸 목업 모달로 대체한다.
 function AdGateModal({ open, onComplete, onClose }) {
   const [remaining, setRemaining] = useState(AD_GATE_SECONDS)
+  const supportsFullScreenAd = safeIsTossAdsSupported(loadFullScreenAd.isSupported) && safeIsTossAdsSupported(showFullScreenAd.isSupported)
 
   useEffect(() => {
     if (!open) return undefined
+
+    if (supportsFullScreenAd) {
+      let cancelled = false
+      const disposeLoad = loadFullScreenAd({
+        options: { adGroupId: FULLSCREEN_AD_GROUP_ID },
+        onEvent: (e) => {
+          if (cancelled || e.type !== 'loaded') return
+          showFullScreenAd({
+            options: { adGroupId: FULLSCREEN_AD_GROUP_ID },
+            onEvent: (se) => {
+              // 광고를 닫았거나(dismissed) 표시에 실패했으면(failedToShow) 진행을 막지 않는다.
+              if (!cancelled && (se.type === 'dismissed' || se.type === 'failedToShow')) onComplete()
+            },
+            onError: () => {
+              if (!cancelled) onComplete()
+            },
+          })
+        },
+        onError: () => {
+          if (!cancelled) onComplete() // 로드 실패 시에도 사용자를 막지 않고 통과시킨다.
+        },
+      })
+      return () => {
+        cancelled = true
+        disposeLoad?.()
+      }
+    }
+
     setRemaining(AD_GATE_SECONDS)
     const timer = window.setInterval(() => setRemaining((n) => Math.max(0, n - 1)), 1000)
     return () => window.clearInterval(timer)
-  }, [open])
+  }, [open, onComplete, supportsFullScreenAd])
 
-  if (!open) return null
+  // 실제 전면 광고는 네이티브 화면이 전체를 덮으므로 우리 쪽 모달 UI는 필요 없다.
+  if (!open || supportsFullScreenAd) return null
 
   const canSkip = remaining <= 0
 
