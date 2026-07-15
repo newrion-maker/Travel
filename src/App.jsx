@@ -971,6 +971,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
             <span className="mt-0.5 shrink-0 rounded-full bg-[#EAF2F1] px-2 py-0.5 text-[10px] font-extrabold text-teal-deep">AI</span>
             <p className="min-h-[2.6em] text-[12px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan?.summary || '예산에 맞춰 코스를 정리했어요.'}</p>
           </div>
+          <p className="mt-2 text-[11px] font-medium text-ink-3">💡 예산 감을 잡는 참고용 코스예요. 예약 전엔 최신 정보를 꼭 확인해주세요.</p>
           <RatioBar ratios={course.ratios} className="mt-4" />
           <div className="mt-1.5 flex gap-2.5 text-[10.5px] font-semibold text-ink-3">
             <span>숙박 {course.ratios.stay}%</span>
@@ -1169,6 +1170,7 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
               <p className="min-h-[2.6em] text-[12px] font-semibold leading-snug text-[#3E4C51]">{course.aiPlan.summary}</p>
             </div>
           )}
+          <p className="mt-2 text-[11px] font-medium text-ink-3">💡 예산 감을 잡는 참고용 코스예요. 예약 전엔 최신 정보를 꼭 확인해주세요.</p>
           <RatioBar ratios={course.ratios} className="mt-4" />
           <div className="mt-1.5 flex gap-2.5 text-[10.5px] font-semibold text-ink-3">
             <span>숙박 {course.ratios.stay}%</span>
