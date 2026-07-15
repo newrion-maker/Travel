@@ -424,14 +424,6 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
       className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-[length:100%_auto] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:h-full sm:min-h-0"
       style={{ backgroundColor: '#3FB3B4', backgroundImage: `url(${splashBackground})` }}
     >
-      {hasSaved && (
-        <button
-          onClick={onViewSaved}
-          className="absolute right-5 top-[max(env(safe-area-inset-top),20px)] z-20 text-[12.5px] font-bold text-white/85 underline underline-offset-2"
-        >
-          저장한 코스
-        </button>
-      )}
       <div className="relative z-10 mx-auto rounded-full bg-white/18 px-5 py-2.5 text-[13px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-sm">
         AI 여행 코스 추천
       </div>
@@ -451,6 +443,11 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
       >
         시작하기
       </button>
+      {hasSaved && (
+        <button onClick={onViewSaved} className="relative z-10 mt-2 text-[12.5px] font-bold text-white/85 underline underline-offset-2">
+          저장한 코스
+        </button>
+      )}
     </div>
   )
 }
