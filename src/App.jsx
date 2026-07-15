@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { QUESTIONS } from './data/questions.js'
 import regionData from './data/regions.json'
@@ -427,7 +427,10 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
           여름 여행 코스를 짜드려요
         </p>
       </div>
-      <button onClick={onStart} className="relative z-10 h-14 rounded-[17px] bg-white font-extrabold text-teal-deep shadow-[0_12px_26px_rgba(0,102,108,0.18)]">
+      <button
+        onClick={onStart}
+        className="relative z-10 py-2 text-[19px] font-extrabold text-white underline underline-offset-[6px] decoration-2"
+      >
         시작하기
       </button>
     </div>
@@ -1009,13 +1012,15 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
             <div className="mt-3">
               {currentDay.places.length ? (
                 currentDay.places.map((place, idx) => (
-                  <PlaceRow
-                    key={`${place.slotId || place.name}-${idx}`}
-                    place={place}
-                    index={idx + 1}
-                    onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
-                    onRemove={place.slotId ? () => removeSlot(place.slotId) : null}
-                  />
+                  <Fragment key={`${place.slotId || place.name}-${idx}`}>
+                    <PlaceRow
+                      place={place}
+                      index={idx + 1}
+                      onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
+                      onRemove={place.slotId ? () => removeSlot(place.slotId) : null}
+                    />
+                    {idx < currentDay.places.length - 1 && <DistanceHop from={place} to={currentDay.places[idx + 1]} />}
+                  </Fragment>
                 ))
               ) : (
                 <div className="rounded-[13px] bg-screen px-4 py-5 text-center text-[13px] font-bold leading-relaxed text-ink-2">
@@ -1197,7 +1202,10 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
             </div>
             <div className="mt-3">
               {currentDay.places.map((place, idx) => (
-                <PlaceRow key={`${place.slotId || place.name}-${idx}`} place={place} index={idx + 1} onSwap={null} onRemove={null} />
+                <Fragment key={`${place.slotId || place.name}-${idx}`}>
+                  <PlaceRow place={place} index={idx + 1} onSwap={null} onRemove={null} />
+                  {idx < currentDay.places.length - 1 && <DistanceHop from={place} to={currentDay.places[idx + 1]} />}
+                </Fragment>
               ))}
             </div>
           </div>
@@ -1806,6 +1814,37 @@ function MapPlaceholder({ places, source, className }) {
       <p className="absolute bottom-3 left-0 right-0 text-center font-mono text-[11px] font-bold text-ink-3">
         {source === 'tourApi' ? 'TourAPI 실제 데이터 반영' : '지도 미리보기 · 샘플 데이터'}
       </p>
+    </div>
+  )
+}
+
+// 직선거리(하버사인) — 실제 도보/차량 이동거리와는 다를 수 있어 "직선거리"로 표기.
+function haversineKm(a, b) {
+  const R = 6371
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(b.mapy - a.mapy)
+  const dLng = toRad(b.mapx - a.mapx)
+  const lat1 = toRad(a.mapy)
+  const lat2 = toRad(b.mapy)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+
+function formatDistanceKm(km) {
+  return km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`
+}
+
+function DistanceHop({ from, to }) {
+  const fx = Number(from?.mapx)
+  const fy = Number(from?.mapy)
+  const tx = Number(to?.mapx)
+  const ty = Number(to?.mapy)
+  if (!fx || !fy || !tx || !ty) return null
+  const km = haversineKm({ mapx: fx, mapy: fy }, { mapx: tx, mapy: ty })
+  return (
+    <div className="flex items-center gap-1.5 py-1.5 pl-[15px] text-[11px] font-bold text-ink-3">
+      <span className="text-teal-deep">↓</span>
+      직선거리 약 {formatDistanceKm(km)}
     </div>
   )
 }
