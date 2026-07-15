@@ -1,5 +1,20 @@
 # 작업 로그
 
+## 2026-07-14 — 스크롤 인디케이터를 InputScreen/PersonalityScreen/SavedCourseDetailScreen에도 확대 적용
+
+실기기(안드로이드) 스크린샷에서 InputScreen 하단(인원수/예산 필드)이 화면 밖에 있는데 스크롤
+가능하다는 표시가 전혀 없다는 피드백 — 이번 세션 초반 `CoursesScreen`에만 넣었던 `ScrollGutter`
+(스크롤 위치를 보여주는 얇은 막대)를 같은 스크롤 구조(`relative min-h-0 flex-1` 래퍼 + 내부
+`overflow-y-auto`)를 쓰는 나머지 화면에도 동일하게 확대 적용.
+
+- **`src/App.jsx`**: `InputScreen`/`PersonalityScreen`/`SavedCourseDetailScreen`에 `scrollRef` +
+  래퍼 구조 + `<ScrollGutter containerRef={scrollRef} />` 추가(`CoursesScreen`과 동일 패턴).
+- 검증: 빌드 정상, DOM 구조 좌표로 확인(래퍼 안에 스크롤 컨테이너·게터 트랙이 정확히 형제로 배치,
+  콘텐츠가 실제로 화면보다 커서 스크롤 필요한 상태 확인). 자동화 탭이 `document.hidden=true`인
+  배경 탭이라 `scroll` 이벤트 디스패치가 브라우저 차원에서 억제되는 것까지 확인했는데, 이는
+  테스트 환경 한계이지 코드 문제가 아님 — 이미 검증된 `CoursesScreen`과 동일한 구조/로직이라
+  실기기(포그라운드 탭)에서는 정상 동작할 것으로 판단.
+
 ## 2026-07-14 — 스플래시 "저장한 코스" 링크를 상단 우측 → "시작하기" 아래로 이동
 
 - **`Splash`**: "저장한 코스" 텍스트 링크가 화면 상단 우측에 떠 있던 걸 제거하고, "시작하기" 버튼

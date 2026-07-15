@@ -662,10 +662,12 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   // iOS WebKit: 시트가 닫힌 직후, 그 아래 있던 "지역" 버튼이 지연된(고스트) 클릭을 한 번 더
   // 받아 시트가 바로 재오픈되는 현상 방지용 가드(닫힘 시각을 기록해 짧은 시간 내 재오픈 무시).
   const regionClosedAtRef = useRef(0)
+  const scrollRef = useRef(null)
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
       <Header title="여행 정보" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
+      <div className="relative min-h-0 flex-1">
+      <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-4 pt-3">
         <h2 className="whitespace-pre-line text-[22px] font-extrabold leading-snug">어디로, 얼마로{'\n'}떠나볼까요?</h2>
         <p className="mt-2 text-[13px] font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
         <div className="mt-4">
@@ -750,6 +752,8 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
           </PrimaryButton>
         </BottomBar>
       </div>
+      <ScrollGutter containerRef={scrollRef} />
+      </div>
       <AdDock />
     </div>
   )
@@ -802,10 +806,12 @@ function TestScreen({ question, index, picked, onBack, onHome, onPick }) {
 function PersonalityScreen({ personality, onHome, onNext }) {
   const tone = accentClass[personality.accent]
   const resultImage = personalityImages[personality.top] ?? personalitySight
+  const scrollRef = useRef(null)
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col text-center sm:h-full sm:min-h-0">
       <HomeButton onClick={onHome} className="absolute right-4 top-5 z-20" />
-      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-[68px]">
+      <div className="relative min-h-0 flex-1">
+      <div ref={scrollRef} className="h-full overflow-y-auto px-5 pb-4 pt-[68px]">
         <div className="mx-auto rounded-full bg-teal-tint px-4 py-2 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
         <img
           src={resultImage}
@@ -823,6 +829,8 @@ function PersonalityScreen({ personality, onHome, onNext }) {
         <BottomBar>
           <PrimaryButton onClick={onNext}>내 맞춤 코스 보기</PrimaryButton>
         </BottomBar>
+      </div>
+      <ScrollGutter containerRef={scrollRef} />
       </div>
       <AdDock />
     </div>
@@ -1171,11 +1179,13 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
   const tone = accentClass[course.accent] || accentClass.teal
   const dayPlans = course.days?.length ? course.days : [{ day: 1, title: '1일차', places: course.places }]
   const currentDay = dayPlans[Math.min(activeDay, dayPlans.length - 1)]
+  const scrollRef = useRef(null)
 
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
       <Header title="저장한 코스" onBack={onBack} onHome={onHome} right={`${entry.regionLabel} · ${entry.period} · ${entry.arrivalTime} 도착`} />
-      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
+      <div className="relative min-h-0 flex-1">
+      <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-4 pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col items-start gap-2">
@@ -1238,6 +1248,8 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
             저장 삭제하기
           </button>
         </BottomBar>
+      </div>
+      <ScrollGutter containerRef={scrollRef} />
       </div>
     </div>
   )
