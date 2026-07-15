@@ -1,4 +1,4 @@
-import { placeCostRange, sumCostRange, budgetState } from '../src/lib/budget.js'
+import { placeCostRange, sumCostRange, budgetState, scalePlacesCost } from '../src/lib/budget.js'
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini'
 const CAND_LIMIT = 45
@@ -233,7 +233,9 @@ function processPlan(plan, meta, places, arrivalTime) {
  * @returns 코스별 { key, source:'ai', summary, strategy, days } 배열. (여기 없는 코스는 클라가 규칙 fallback)
  */
 export async function generateAiPlans({ input, personality, places, courses } = {}) {
-  const verified = Array.isArray(places) ? places : []
+  // 클라이언트가 보낸 places는 인원수 반영 전(1인 기준) 원가 — 여기서 인원수만큼 곱해야
+  // AI의 예산 적합성 판단과 이후 서버 사이드 보정(correctRed 등)이 정확해진다.
+  const verified = scalePlacesCost(Array.isArray(places) ? places : [], input?.party)
   const metas = Array.isArray(courses) ? courses : []
   if (!hasUsableKey() || verified.length < 3 || !metas.length) {
     console.log(`[ai-plan] 사전조건 미충족 → 규칙 fallback (key=${hasUsableKey()}, 검증장소=${verified.length}, 코스=${metas.length})`)

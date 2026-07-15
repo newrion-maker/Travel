@@ -51,6 +51,20 @@ export function placeCostRange(place) {
   return parseCostString(place?.cost)
 }
 
+// 인원수만큼 식사/관광(입장료) 비용을 늘린다. 숙박은 보통 인원수와 무관하게 방(그룹) 단위
+// 요금이라 제외한다. 후보 풀 단계(선택 로직이 돌기 전)에서 적용해야, "몇 명이 몇 곳을 갈지"
+// 고르는 예산 적합성 판단 자체가 인원수를 반영한다.
+export function scalePlaceCost(place, party = 1) {
+  const p = Math.max(1, Number(party) || 1)
+  if (p <= 1 || place?.kind === 'stay') return place
+  const { min, max } = placeCostRange(place)
+  return { ...place, minCost: min * p, maxCost: max * p }
+}
+
+export function scalePlacesCost(places = [], party = 1) {
+  return places.map((p) => scalePlaceCost(p, party))
+}
+
 // 장소 여러 개의 비용 범위 합.
 export function sumCostRange(places = []) {
   return places.reduce(

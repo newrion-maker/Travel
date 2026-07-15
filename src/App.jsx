@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { QUESTIONS } from './data/questions.js'
 import regionData from './data/regions.json'
 import curatedData from './data/curated-regions.json'
-import { formatKRW, sumCostRange, budgetState, formatPlaceCost } from './lib/budget.js'
+import { formatKRW, sumCostRange, budgetState, formatPlaceCost, scalePlacesCost } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
 import { generateCourses } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
@@ -908,7 +908,9 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const changeNote = [editedCount && `바꾼 ${editedCount}곳`, removedCount && `뺀 ${removedCount}곳`].filter(Boolean).join(' · ')
 
   const usedNames = new Set(effectivePlaces.map((p) => p.name))
-  const verifiedTourPlaces = (tourPlaces || []).filter(isKakaoVerifiedPlace)
+  // tourPlaces는 인원수 반영 전(1인 기준) 원가라, 스왑 후보로 보여줄 때도 코스 생성 때와
+  // 동일하게 인원수만큼 곱해줘야 실제 코스에 들어간 장소들과 비용 기준이 맞는다.
+  const verifiedTourPlaces = scalePlacesCost((tourPlaces || []).filter(isKakaoVerifiedPlace), input.party)
   const hasCandidates = (kind) => verifiedTourPlaces.some((p) => p.kind === kind && !usedNames.has(p.name))
   const baseSlotPlace = (slotId) => dayPlans.flatMap((d) => d.places).find((p) => p.slotId === slotId)
   const swapCandidates = swapTarget ? verifiedTourPlaces.filter((p) => p.kind === swapTarget.kind && !usedNames.has(p.name)) : []

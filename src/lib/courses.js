@@ -9,7 +9,7 @@
 // courses[] 스키마는 README State Management 절을 바탕으로 하되, 기간별 표시를 위해 days[]를 추가한다.
 //   { key, label, accent, title, budget, ratios:{stay,food,sight}, places:[...], days:[...] }
 
-import { computeNetBudget, budgetBand, placeCostRange, sumCostRange, budgetState } from './budget.js'
+import { computeNetBudget, budgetBand, placeCostRange, sumCostRange, budgetState, scalePlacesCost } from './budget.js'
 import { LABELS, LABEL_ACCENT } from './personality.js'
 
 // 축별 대표 비율 프로파일 (전일정 기준). 당일치기면 stay 제거 후 재정규화.
@@ -423,7 +423,10 @@ export function generateCourses(input, personality, tourPlaces = []) {
   const tier = budgetTier({ net, party, period, isDayTrip })
 
   const isGangneung = /강릉/.test(region || '')
-  const verifiedTourPlaces = Array.isArray(tourPlaces) ? tourPlaces.filter(isKakaoVerifiedPlace) : []
+  const verifiedTourPlaces = scalePlacesCost(
+    Array.isArray(tourPlaces) ? tourPlaces.filter(isKakaoVerifiedPlace) : [],
+    party,
+  )
   const hasApiPlaces = verifiedTourPlaces.length >= 3
 
   // 메인 먼저, 나머지 축을 서브로 (§3.4). 당일치기는 숙박 축(L=호캉스)을 제외한다.
@@ -431,7 +434,7 @@ export function generateCourses(input, personality, tourPlaces = []) {
   const order = [personality.top, ...axisPool.filter((a) => a !== personality.top)]
 
   return order.map((axis) => {
-    const fallbackPlaces = isGangneung ? PLACES_GANGNEUNG[axis] : genericPlaces(city, axis)
+    const fallbackPlaces = scalePlacesCost(isGangneung ? PLACES_GANGNEUNG[axis] : genericPlaces(city, axis), party)
     let basePlaces = buildApiPlaces(verifiedTourPlaces, axis, fallbackPlaces, tier, !hasApiPlaces)
     let days = buildDayPlans({
       city,
