@@ -1311,9 +1311,9 @@ function StepButton({ children, fill, onClick }) {
   )
 }
 
-// 앱인토스 콘솔에서 발급받은 실제 광고그룹 ID로 교체할 것 (배너/전면형 각각 별도 광고그룹).
-const BANNER_AD_GROUP_ID = 'ait-ad-test-banner-id'
-const FULLSCREEN_AD_GROUP_ID = 'ait-ad-test-fullscreen-id'
+// 앱인토스 콘솔에서 발급받은 실제 광고그룹 ID (하단 배너 / 전면형).
+const BANNER_AD_GROUP_ID = 'ait.v2.live.09986c894e5848c0'
+const FULLSCREEN_AD_GROUP_ID = 'ait.v2.live.d86ffc8b126d486e'
 
 // TossAds.*.isSupported()는 토스 앱 밖(일반 브라우저 등)에서 false를 반환하는 대신
 // "not a constant handler" 에러를 던진다 — 문서화되지 않은 동작이라 항상 try/catch로 방어한다.
