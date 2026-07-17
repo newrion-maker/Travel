@@ -413,6 +413,9 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
           저장한 코스
         </button>
       )}
+      <a href="/privacy" target="_blank" rel="noreferrer" className="relative z-10 mt-4 text-center text-[11px] font-medium text-white/50">
+        개인정보처리방침
+      </a>
     </div>
   )
 }

@@ -12,7 +12,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "serve": "node server/app.js",
-    "start": "node server/app.js"
+    "start": "node server/app.js",
+    "test": "vitest run",
+    "ait:build": "ait build && npm run build"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "^2.10.4",
@@ -24,6 +26,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^4.1.10"
   }
 }

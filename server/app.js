@@ -270,6 +270,52 @@ async function serveShareHtml(req, res, url) {
   res.end(injectOg(html, buildShareMeta(url, origin)))
 }
 
+// 회원가입/로그인이 없는 앱이라 서버가 보관하는 개인정보는 없음 — 기기 로컬 저장(localStorage)과
+// 광고/지도 SDK가 각자 처리하는 부분만 있어 그 사실을 그대로 안내한다. React 번들과 무관하게
+// 항상 뜨도록 순수 정적 HTML로 서빙한다.
+const PRIVACY_HTML = `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>개인정보처리방침 · 얼마 있어?</title>
+<style>
+  body { margin: 0; padding: 32px 20px 60px; max-width: 560px; margin: 0 auto; font-family: -apple-system, 'Pretendard', 'Malgun Gothic', sans-serif; color: #1B2528; line-height: 1.7; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  h2 { font-size: 15px; margin-top: 32px; color: #0E9A8F; }
+  p, li { font-size: 14px; color: #3E4C51; }
+  .updated { font-size: 12px; color: #8A999E; margin-bottom: 24px; }
+</style>
+</head>
+<body>
+  <h1>개인정보처리방침</h1>
+  <p class="updated">최종 업데이트: 2026-07-17</p>
+
+  <h2>회원가입 없이 이용하는 앱이에요</h2>
+  <p>'얼마 있어?'는 별도의 회원가입·로그인 없이 이용해요. 그래서 이름, 이메일 같은 개인정보를 서버에 수집·저장하지 않아요.</p>
+
+  <h2>입력하신 여행 정보는 어떻게 쓰이나요</h2>
+  <p>지역·예산·기간·인원수 같은 정보는 코스를 생성하는 순간에만 서버로 전달되고, 응답을 만든 뒤에는 서버에 저장하지 않고 즉시 폐기해요.</p>
+
+  <h2>기기에 저장되는 정보</h2>
+  <p>저장한 코스, 오늘 무료 생성 횟수는 사용자 기기의 브라우저 저장소(localStorage)에만 저장돼요. 서버로 전송되지 않으며, 브라우저 데이터를 지우면 함께 삭제돼요.</p>
+
+  <h2>광고</h2>
+  <p>토스애즈(TossAds)를 통해 광고를 제공해요. 광고 효과 측정을 위해 광고 SDK가 기기 식별자 등 정보를 수집할 수 있으며, 이는 토스 자체 개인정보처리방침을 따라요.</p>
+
+  <h2>지도</h2>
+  <p>장소 위치 표시를 위해 카카오맵(Kakao Maps) API를 사용해요. 지도 표시 과정에서 카카오의 정책에 따라 정보가 처리될 수 있어요.</p>
+
+  <h2>문의</h2>
+  <p>개인정보 관련 문의는 <a href="mailto:newrion@gmail.com">newrion@gmail.com</a>으로 연락해 주세요.</p>
+</body>
+</html>`
+
+function servePrivacyHtml(res) {
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=3600' })
+  res.end(PRIVACY_HTML)
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
@@ -281,6 +327,11 @@ createServer(async (req, res) => {
       return
     }
     await handleApi(req, res, url)
+    return
+  }
+
+  if (url.pathname === '/privacy') {
+    servePrivacyHtml(res)
     return
   }
 

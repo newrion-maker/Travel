@@ -81,10 +81,13 @@ http://127.0.0.1:5175/api/tour-places?region=강원%20강릉시
 
 ### 2. 프론트(앱인토스) 배포
 
-1. `VITE_API_BASE_URL`을 Render 도메인으로 설정한 상태에서 `npm run build`
-2. `npx ait build` → `.ait` 번들 생성
-3. 콘솔 업로드 또는 `npx ait deploy` (CI/CD용 API 키 필요, 콘솔에서 발급)
-4. QR 코드 스캔 또는 `intoss-private://appsintoss?_deploymentId=[ID]` 스킴으로 실기기 테스트
+1. `VITE_API_BASE_URL=https://budgettrip-api.onrender.com npm run ait:build` → `.ait` 번들 생성
+   - ⚠️ `ait build`는 내부적으로 `dist/`를 RN 번들 출력용으로 덮어써서, 그 직후 로컬에서
+     `node server/app.js`로 웹 화면을 확인하면 503이 남. `npm run ait:build`는 `ait build` 직후
+     자동으로 `npm run build`를 다시 돌려 `dist/`를 웹 서빙용으로 복구하므로, 로컬 확인이 필요하면
+     반드시 `ait build`를 직접 쓰지 말고 이 스크립트를 쓸 것.
+2. 콘솔 업로드 또는 `npx ait deploy` (CI/CD용 API 키 필요, 콘솔에서 발급)
+3. QR 코드 스캔 또는 `intoss-private://appsintoss?_deploymentId=[ID]` 스킴으로 실기기 테스트
 
 ## 출시 전 필수 체크
 

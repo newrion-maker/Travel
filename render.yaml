@@ -1,6 +1,10 @@
+# 참고: 실제 배포는 이 Blueprint가 아니라 Render 콘솔에서 수동으로 진행했음(서비스명
+# budgettrip-api, 싱가포르 리전). 이 파일은 재현 가능한 설정 문서 용도로 실제 상태와 맞춰둠 —
+# Blueprint로 새로 만들 경우에도 이 값들을 참고할 것.
 services:
   - type: web
-    name: summer-travel
+    name: budgettrip-api
+    region: singapore
     runtime: node
     plan: free
     buildCommand: npm install && npm run build
@@ -19,3 +23,7 @@ services:
         value: gpt-4.1-mini
       - key: VITE_KAKAO_MAP_KEY
         sync: false
+      - key: VITE_API_BASE_URL
+        value: https://budgettrip-api.onrender.com
+      - key: ALLOWED_ORIGINS
+        value: https://budgettrip.private-apps.tossmini.com

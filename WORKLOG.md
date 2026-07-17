@@ -1,5 +1,25 @@
 # 작업 로그
 
+## 2026-07-17 — 출시 전 최종 점검 수정 (2/2): 개인정보처리방침, 단위 테스트, 빌드/배포 정리
+
+`PRE_LAUNCH_AUDIT.md` 나머지 항목(중요#5,6 + 경미#7,8,9) 처리 완료 — 9개 항목 전부 종결.
+
+- **`server/app.js`**: `/privacy` 정적 페이지 추가(수집 데이터 없음/localStorage/광고 SDK/카카오맵
+  안내 + 문의처). **`src/App.jsx`**: 스플래시 화면 맨 아래에 작은 "개인정보처리방침" 링크 추가.
+- **`vitest` 도입**: `src/lib/budget.test.js`에 23개 단위 테스트(예산 계산 전반 + 인원수 반영
+  회귀 테스트 포함) 작성, 전부 통과. 작성 중 `parseCostString`이 단위가 섞인 범위 문자열("5천~
+  1.2만원")을 의도대로 파싱 못 하는 잠재 버그 발견 — 실제 호출 경로에선 도달 안 해서 당장은
+  기록만 남김.
+- **`package.json`**: `npm run ait:build` 스크립트 추가(`ait build && npm run build`) — `.ait`
+  빌드가 로컬 웹 서빙용 `dist/`를 덮어쓰는 부작용을 자동으로 복구. `TOSS_LAUNCH.md`도 이 스크립트
+  사용하도록 안내 갱신.
+- **`useMemo` 재계산 이슈 재검토**: `generateCourses` 1회 호출을 200번 반복 측정한 결과 평균
+  0.065ms — 체감 불가능한 수준이라 코드 변경 안 함(불필요한 복잡도 추가 방지).
+- **`render.yaml`**: 실제 배포 상태(서비스명 `budgettrip-api`, 싱가포르 리전,
+  `VITE_API_BASE_URL`/`ALLOWED_ORIGINS`)에 맞춰 갱신.
+- 검증: 클린 빌드, `npm test`(23/23 통과), 전체 사용자 플로우 E2E(콘솔 에러 0건), `/privacy`·
+  `/icon.png` 200 응답, `/api/kakao-health` 404 전부 재확인.
+
 ## 2026-07-17 — 출시 전 최종 점검 수정 (1/2): Error Boundary, 앱 아이콘, API 남용 방지
 
 `PRE_LAUNCH_AUDIT.md` 점검에서 발견된 치명#1,2 + 중요#3,4 처리.
