@@ -386,40 +386,44 @@ function PhoneShell({ children, tone }) {
   )
 }
 
-// 삽화 원본 비율(폭:860 높이:2400) 기준, 섬 일러스트는 세로 62% 지점에서 끝나고
-// 그 아래는 평평한 바다색이다. 화면이 충분히 길면 폭 기준 100%로 꽉 채우고,
-// 토스 인앱 헤더 등으로 실제 보이는 높이가 짧아지면 버튼 영역과 겹치지 않도록
-// 비율을 유지한 채(레터박스만 생기고 찌그러지지 않게) 축소한다.
+// 삽화 원본 비율(폭:860 높이:2400) 기준, 섬 일러스트는 세로 61.25% 지점에서 끝나고
+// 그 아래는 평평한 바다색이다. 버튼 블록의 실제 렌더 위치(플렉스 레이아웃 결과, 배경
+// 이미지 크기와 무관하게 정해짐)를 측정해서, 일러스트 하단이 버튼 위쪽과 겹칠 때만
+// 비율을 유지한 채(레터박스만 생기고 찌그러지지 않게) 축소한다. 정상적으로 여백이
+// 충분한 화면(기존 디자인)에서는 손대지 않고 폭 100%로 그대로 채운다.
 const SPLASH_IMG_W = 860
 const SPLASH_IMG_H = 2400
-const SPLASH_ARTWORK_BOTTOM_FRACTION = 0.63
-const SPLASH_SAFE_BUTTON_ZONE_PX = 180
+const SPLASH_ARTWORK_BOTTOM_FRACTION = 0.6125
+const SPLASH_SAFETY_BUFFER_PX = 16
 
 function Splash({ onStart, onViewSaved, hasSaved }) {
   const containerRef = useRef(null)
+  const buttonBlockRef = useRef(null)
   const [bgSize, setBgSize] = useState(null)
 
   useEffect(() => {
     const recompute = () => {
       const el = containerRef.current
-      if (!el) return
+      const btn = buttonBlockRef.current
+      if (!el || !btn) return
       const w = el.clientWidth
-      const h = el.clientHeight
+      const buttonTop = btn.getBoundingClientRect().top - el.getBoundingClientRect().top
       const widthBasedHeight = w * (SPLASH_IMG_H / SPLASH_IMG_W)
-      const maxAllowedHeight = Math.max(
-        (h - SPLASH_SAFE_BUTTON_ZONE_PX) / SPLASH_ARTWORK_BOTTOM_FRACTION,
-        h * 0.4,
-      )
-      if (maxAllowedHeight >= widthBasedHeight) {
+      const artworkBottom = widthBasedHeight * SPLASH_ARTWORK_BOTTOM_FRACTION
+      if (buttonTop - artworkBottom >= SPLASH_SAFETY_BUFFER_PX) {
         setBgSize(null)
       } else {
+        const maxAllowedHeight = Math.max(
+          (buttonTop - SPLASH_SAFETY_BUFFER_PX) / SPLASH_ARTWORK_BOTTOM_FRACTION,
+          el.clientHeight * 0.4,
+        )
         setBgSize({ width: maxAllowedHeight * (SPLASH_IMG_W / SPLASH_IMG_H), height: maxAllowedHeight })
       }
     }
     recompute()
     window.addEventListener('resize', recompute)
     return () => window.removeEventListener('resize', recompute)
-  }, [])
+  }, [hasSaved])
 
   return (
     <div
@@ -445,17 +449,19 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
           여름 여행 코스를 짜드려요
         </p>
       </div>
-      <button
-        onClick={onStart}
-        className="relative z-10 py-2 text-[16px] font-semibold text-white underline underline-offset-[6px]"
-      >
-        시작하기
-      </button>
-      {hasSaved && (
-        <button onClick={onViewSaved} className="relative z-10 mt-2 text-[12.5px] font-bold text-white/85 underline underline-offset-2">
-          저장한 코스
+      <div ref={buttonBlockRef} className="relative z-10 flex flex-col items-center">
+        <button
+          onClick={onStart}
+          className="py-2 text-[16px] font-semibold text-white underline underline-offset-[6px]"
+        >
+          시작하기
         </button>
-      )}
+        {hasSaved && (
+          <button onClick={onViewSaved} className="mt-2 text-[12.5px] font-bold text-white/85 underline underline-offset-2">
+            저장한 코스
+          </button>
+        )}
+      </div>
     </div>
   )
 }
