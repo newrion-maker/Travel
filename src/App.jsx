@@ -386,11 +386,51 @@ function PhoneShell({ children, tone }) {
   )
 }
 
+// 삽화 원본 비율(폭:860 높이:2400) 기준, 섬 일러스트는 세로 62% 지점에서 끝나고
+// 그 아래는 평평한 바다색이다. 화면이 충분히 길면 폭 기준 100%로 꽉 채우고,
+// 토스 인앱 헤더 등으로 실제 보이는 높이가 짧아지면 버튼 영역과 겹치지 않도록
+// 비율을 유지한 채(레터박스만 생기고 찌그러지지 않게) 축소한다.
+const SPLASH_IMG_W = 860
+const SPLASH_IMG_H = 2400
+const SPLASH_ARTWORK_BOTTOM_FRACTION = 0.63
+const SPLASH_SAFE_BUTTON_ZONE_PX = 180
+
 function Splash({ onStart, onViewSaved, hasSaved }) {
+  const containerRef = useRef(null)
+  const [bgSize, setBgSize] = useState(null)
+
+  useEffect(() => {
+    const recompute = () => {
+      const el = containerRef.current
+      if (!el) return
+      const w = el.clientWidth
+      const h = el.clientHeight
+      const widthBasedHeight = w * (SPLASH_IMG_H / SPLASH_IMG_W)
+      const maxAllowedHeight = Math.max(
+        (h - SPLASH_SAFE_BUTTON_ZONE_PX) / SPLASH_ARTWORK_BOTTOM_FRACTION,
+        h * 0.4,
+      )
+      if (maxAllowedHeight >= widthBasedHeight) {
+        setBgSize(null)
+      } else {
+        setBgSize({ width: maxAllowedHeight * (SPLASH_IMG_W / SPLASH_IMG_H), height: maxAllowedHeight })
+      }
+    }
+    recompute()
+    window.addEventListener('resize', recompute)
+    return () => window.removeEventListener('resize', recompute)
+  }, [])
+
   return (
     <div
-      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-[length:100%_auto] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:h-full sm:min-h-0"
-      style={{ backgroundColor: '#3FB3B4', backgroundImage: `url(${splashBackground})` }}
+      ref={containerRef}
+      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:h-full sm:min-h-0"
+      style={{
+        backgroundColor: '#3FB3B4',
+        backgroundImage: `url(${splashBackground})`,
+        backgroundPosition: 'top center',
+        backgroundSize: bgSize ? `${bgSize.width}px ${bgSize.height}px` : '100% auto',
+      }}
     >
       <div className="relative z-10 mx-auto rounded-full bg-white/18 px-5 py-2.5 text-[13px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-sm">
         AI 여행 코스 추천
@@ -416,9 +456,6 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
           저장한 코스
         </button>
       )}
-      <a href="/privacy" target="_blank" rel="noreferrer" className="relative z-10 mt-4 text-center text-[11px] font-medium text-white/50">
-        개인정보처리방침
-      </a>
     </div>
   )
 }
