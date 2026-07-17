@@ -677,6 +677,7 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
   // 받아 시트가 바로 재오픈되는 현상 방지용 가드(닫힘 시각을 기록해 짧은 시간 내 재오픈 무시).
   const regionClosedAtRef = useRef(0)
   const scrollRef = useRef(null)
+  const chipScrollRef = useRef(null)
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
       <Header title="여행 정보" onBack={onBack} />
@@ -686,19 +687,22 @@ function InputScreen({ input, setInput, canContinue, onBack, onNext }) {
         <p className="mt-2 text-[13px] font-medium text-ink-2">정보를 입력하면 예산에 맞춰 코스를 짜드려요.</p>
         <div className="mt-4">
           <p className="text-[12px] font-extrabold text-teal-deep">여름엔 여기 🌊</p>
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-            {SUMMER_QUICK_SPOTS.map((spot) => (
-              <button
-                key={spot.regionLabel}
-                type="button"
-                onClick={() => setInput({ ...input, region: spot.region, regionLabel: spot.regionLabel })}
-                className={`shrink-0 rounded-full border px-3.5 py-2 text-[12.5px] font-bold ${
-                  input.regionLabel === spot.regionLabel ? 'border-teal bg-teal-tint text-teal-deep' : 'border-line bg-white text-ink-2'
-                }`}
-              >
-                {spot.chip}
-              </button>
-            ))}
+          <div className="relative mt-2">
+            <div ref={chipScrollRef} className="flex gap-2 overflow-x-auto pb-2">
+              {SUMMER_QUICK_SPOTS.map((spot) => (
+                <button
+                  key={spot.regionLabel}
+                  type="button"
+                  onClick={() => setInput({ ...input, region: spot.region, regionLabel: spot.regionLabel })}
+                  className={`shrink-0 rounded-full border px-3.5 py-2 text-[12.5px] font-bold ${
+                    input.regionLabel === spot.regionLabel ? 'border-teal bg-teal-tint text-teal-deep' : 'border-line bg-white text-ink-2'
+                  }`}
+                >
+                  {spot.chip}
+                </button>
+              ))}
+            </div>
+            <ScrollGutter containerRef={chipScrollRef} direction="horizontal" />
           </div>
         </div>
         <Field label="지역">
@@ -871,23 +875,30 @@ function LoadingScreen() {
   )
 }
 
-function ScrollGutter({ containerRef }) {
-  const [state, setState] = useState({ show: false, topPct: 0, heightPct: 100 })
+// direction="vertical"(기본)은 세로 스크롤 화면 오른쪽 가장자리에, "horizontal"은 가로
+// 스크롤 목록 아래쪽에 얇은 틸 색 바를 그린다. iOS/토스 웹뷰는 네이티브 스크롤바를
+// 터치 중에만 잠깐 보여주고 사라지는데, 그러면 유저가 터치해보기 전엔 스크롤 가능한 걸
+// 알 방법이 없어서 항상 표시되는 자체 인디케이터를 쓴다.
+function ScrollGutter({ containerRef, direction = 'vertical' }) {
+  const isHorizontal = direction === 'horizontal'
+  const [state, setState] = useState({ show: false, startPct: 0, sizePct: 100 })
 
   useEffect(() => {
     const el = containerRef.current
     if (!el) return undefined
 
     const update = () => {
-      const { scrollTop, scrollHeight, clientHeight } = el
-      if (scrollHeight <= clientHeight + 1) {
-        setState((prev) => (prev.show ? { show: false, topPct: 0, heightPct: 100 } : prev))
+      const scrollPos = isHorizontal ? el.scrollLeft : el.scrollTop
+      const scrollSize = isHorizontal ? el.scrollWidth : el.scrollHeight
+      const clientSize = isHorizontal ? el.clientWidth : el.clientHeight
+      if (scrollSize <= clientSize + 1) {
+        setState((prev) => (prev.show ? { show: false, startPct: 0, sizePct: 100 } : prev))
         return
       }
-      const heightPct = Math.max(10, (clientHeight / scrollHeight) * 100)
-      const maxTop = 100 - heightPct
-      const topPct = maxTop > 0 ? (scrollTop / (scrollHeight - clientHeight)) * maxTop : 0
-      setState({ show: true, topPct, heightPct })
+      const sizePct = Math.max(10, (clientSize / scrollSize) * 100)
+      const maxStart = 100 - sizePct
+      const startPct = maxStart > 0 ? (scrollPos / (scrollSize - clientSize)) * maxStart : 0
+      setState({ show: true, startPct, sizePct })
     }
 
     update()
@@ -902,15 +913,26 @@ function ScrollGutter({ containerRef }) {
       window.removeEventListener('resize', update)
       ro.disconnect()
     }
-  }, [containerRef])
+  }, [containerRef, isHorizontal])
 
   if (!state.show) return null
+
+  if (isHorizontal) {
+    return (
+      <div className="pointer-events-none absolute inset-x-1 bottom-0 z-10 h-1">
+        <div
+          className="absolute bottom-0 h-1 rounded-full bg-teal/35"
+          style={{ left: `${state.startPct}%`, width: `${state.sizePct}%` }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="pointer-events-none absolute right-1 top-0 z-10 h-full w-1 py-1">
       <div
-        className="absolute right-0 w-1 rounded-full bg-black/18"
-        style={{ top: `${state.topPct}%`, height: `${state.heightPct}%` }}
+        className="absolute right-0 w-1 rounded-full bg-teal/35"
+        style={{ top: `${state.startPct}%`, height: `${state.sizePct}%` }}
       />
     </div>
   )
