@@ -8,8 +8,8 @@ export default defineConfig({
     displayName: '얼마 있어?',
     // 앱 대표 색상 (현재 앱의 teal 브랜드 컬러)
     primaryColor: '#12B3A6',
-    // TODO: 콘솔에 등록한 앱 아이콘 이미지 URL을 넣어야 함
-    icon: '',
+    // public/icon.png(빌드 시 dist/icon.png로 복사돼 백엔드에서 정적으로 서빙됨)
+    icon: 'https://budgettrip-api.onrender.com/icon.png',
   },
   web: {
     host: 'localhost',

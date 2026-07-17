@@ -1,5 +1,25 @@
 # 작업 로그
 
+## 2026-07-17 — 출시 전 최종 점검 수정 (1/2): Error Boundary, 앱 아이콘, API 남용 방지
+
+`PRE_LAUNCH_AUDIT.md` 점검에서 발견된 치명#1,2 + 중요#3,4 처리.
+
+- **`src/ErrorBoundary.jsx`(신규) + `src/main.jsx`**: 최상위 React Error Boundary 추가. 렌더링 중
+  예외가 나면 흰 화면 대신 "다시 시도" / "저장한 코스 초기화 후 다시 시도" 복구 UI를 보여줌.
+  Playwright로 의도적으로 깨진 저장 코스 데이터(course: null)를 주입해 실제로 예외를 유발시켜
+  검증 — 정상적으로 폴백 UI가 뜨고, 초기화 버튼으로 정상 복구되는 것까지 확인.
+- **`public/icon.png`(신규) + `granite.config.ts`**: 브랜드 컬러(teal) 기반 앱 아이콘(여행가방+₩)
+  생성해 `public/`에 배치(빌드 시 `dist/icon.png`로 복사돼 백엔드가 정적으로 서빙). `brand.icon`을
+  빈 문자열에서 `https://budgettrip-api.onrender.com/icon.png`로 채움. 로컬 서버로 200 서빙 확인.
+  단, 앱인토스 콘솔의 마켓 등록용 아이콘 업로드는 별도 — 이 이미지를 콘솔에도 업로드해야 함.
+- **`server/app.js`**: `/api/ai-plan`(OpenAI 과금 발생), `/api/tour-places`에 IP 기준 슬라이딩
+  윈도우 rate limit 추가(각각 10분당 10회/60회, 초과 시 429). 오래된 IP 버킷은 30분마다 정리.
+  로컬에서 동시 요청 65개를 쏴서 60개 근처에서 429가 섞이기 시작하는 것 확인, 이후 정상 플로우가
+  방해받지 않는 것도 별도 확인(서버 재시작으로 카운터 리셋 후 재검증).
+- **`server/app.js`, `server/kakaoLocal.js`**: 인증 없이 프로덕션에 노출돼 있던 디버그용
+  `/api/kakao-health` 라우트와 `diagnoseKakaoLocal` 함수 완전히 제거. 호출해보면 404 확인.
+- 검증: 빌드 정상, 전체 사용자 플로우(스플래시→코스생성) 콘솔 에러 0건 재확인.
+
 ## 2026-07-15 — 마켓 등록용 앱 이름 변경 반영: "AI예산여행" → "얼마 있어?"
 
 앱인토스 콘솔 마켓 등록 화면에서 한국어 앱 이름을 "얼마 있어?"로 변경 — 코드에 박혀있던 표시

@@ -4,7 +4,6 @@ import { createServer } from 'node:http'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { generateAiPlans } from './aiPlan.js'
-import { diagnoseKakaoLocal } from './kakaoLocal.js'
 import { fetchTourPlaces } from './tourApi.js'
 import { computePersonality } from '../src/lib/personality.js'
 import { QUESTIONS } from '../src/data/questions.js'
@@ -60,6 +59,47 @@ function applyCors(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 }
 
+// 클라이언트의 "하루 3회 무료" 제한은 브라우저 localStorage 기준이라, API를 직접 호출하는
+// 스크립트는 거치지 않는다. 특히 /api/ai-plan은 호출마다 실제 OpenAI 과금이 발생하므로,
+// IP 기준 슬라이딩 윈도우로 서버 사이드 최소 방어선을 둔다.
+const RATE_LIMITS = {
+  '/api/ai-plan': { windowMs: 10 * 60 * 1000, max: 10 },
+  '/api/tour-places': { windowMs: 10 * 60 * 1000, max: 60 },
+}
+const rateLimitHits = new Map() // `${route}:${ip}` -> timestamp[]
+
+function clientIp(req) {
+  const xff = req.headers['x-forwarded-for']
+  if (xff) return xff.split(',')[0].trim()
+  return req.socket.remoteAddress || 'unknown'
+}
+
+function checkRateLimit(req, route) {
+  const rule = RATE_LIMITS[route]
+  if (!rule) return true
+  const key = `${route}:${clientIp(req)}`
+  const now = Date.now()
+  const hits = (rateLimitHits.get(key) || []).filter((t) => now - t < rule.windowMs)
+  if (hits.length >= rule.max) {
+    rateLimitHits.set(key, hits)
+    return false
+  }
+  hits.push(now)
+  rateLimitHits.set(key, hits)
+  return true
+}
+
+// 오래된 IP 버킷이 메모리에 무한정 쌓이지 않도록 주기적으로 청소.
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, hits] of rateLimitHits) {
+    const rule = RATE_LIMITS[key.slice(0, key.lastIndexOf(':'))]
+    const fresh = hits.filter((t) => now - t < (rule?.windowMs ?? 0))
+    if (fresh.length) rateLimitHits.set(key, fresh)
+    else rateLimitHits.delete(key)
+  }
+}, 30 * 60 * 1000).unref()
+
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -108,14 +148,11 @@ async function handleApi(req, res, url) {
     return
   }
 
-  if (url.pathname === '/api/kakao-health') {
-    const query = url.searchParams.get('query') || '강릉'
-    const result = await diagnoseKakaoLocal(query)
-    sendJson(res, 200, result)
-    return
-  }
-
   if (url.pathname === '/api/tour-places') {
+    if (!checkRateLimit(req, url.pathname)) {
+      sendJson(res, 429, { error: 'Too many requests', places: [], source: 'fallback' })
+      return
+    }
     try {
       const region = url.searchParams.get('region') || '강원 강릉시'
       const places = await fetchTourPlaces(region)
@@ -127,6 +164,10 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === '/api/ai-plan' && req.method === 'POST') {
+    if (!checkRateLimit(req, url.pathname)) {
+      sendJson(res, 429, { error: 'Too many requests', plans: [], source: 'fallback' })
+      return
+    }
     try {
       const body = await readJsonBody(req)
       const plans = await generateAiPlans(body)
