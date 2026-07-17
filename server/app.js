@@ -62,9 +62,12 @@ function applyCors(req, res) {
 // 클라이언트의 "하루 3회 무료" 제한은 브라우저 localStorage 기준이라, API를 직접 호출하는
 // 스크립트는 거치지 않는다. 특히 /api/ai-plan은 호출마다 실제 OpenAI 과금이 발생하므로,
 // IP 기준 슬라이딩 윈도우로 서버 사이드 최소 방어선을 둔다.
+// 값 산정: 사무실/행사장처럼 여러 명이 같은 공인 IP(NAT)를 공유하는 상황(예: 챌린지 심사)에서도
+// 정상 사용자가 막히지 않도록 여유를 두되, 지속적인 스크립트 남용은 여전히 막을 수 있는 수준.
+// (한 명당 보통 1~2회, 10명이 동시에 테스트해도 20~30회 안쪽 — 아래 값은 그보다 넉넉하게 잡음)
 const RATE_LIMITS = {
-  '/api/ai-plan': { windowMs: 10 * 60 * 1000, max: 10 },
-  '/api/tour-places': { windowMs: 10 * 60 * 1000, max: 60 },
+  '/api/ai-plan': { windowMs: 15 * 60 * 1000, max: 30 },
+  '/api/tour-places': { windowMs: 10 * 60 * 1000, max: 100 },
 }
 const rateLimitHits = new Map() // `${route}:${ip}` -> timestamp[]
 
