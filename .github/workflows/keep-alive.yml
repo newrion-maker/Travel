@@ -5,11 +5,31 @@ on:
     # Render 무료 플랜은 15분 동안 요청이 없으면 잠든다. 그보다 짧은 주기로 핑을 보내
     # 콜드 스타트(재요청 시 30~60초 지연)를 방지한다.
     - cron: '*/10 * * * *'
+    # GitHub는 저장소에 60일간 커밋이 없으면 예약(cron) 워크플로 자체를 자동으로 꺼버린다.
+    # 위 10분 핑은 서버만 찌를 뿐 저장소 커밋은 아니라서 이 룰에 안 걸린다는 보장이 없다 —
+    # 그래서 매주 한 번, 아무도 신경 안 써도 저장소가 계속 "활동 중"으로 유지되게 빈 커밋을
+    # 하나씩 만든다(60일 한도 대비 충분히 여유 있는 주기).
+    - cron: '0 0 * * 0'
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    if: github.event.schedule == '*/10 * * * *' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Ping /api/health
         run: curl -fsS https://budgettrip-api.onrender.com/api/health
+
+  keep-repo-active:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 0 * * 0'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make a weekly empty commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keep repo active for scheduled workflows (automated)"
+          git push
