@@ -42,7 +42,11 @@ function writeCache(key, value) {
   kakaoPlaceCache.set(key, { savedAt: Date.now(), value })
 }
 
-async function lookupPlace(region, place) {
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function lookupPlaceOnce(region, place) {
   const params = new URLSearchParams({
     query: [region, place.name].filter(Boolean).join(' '),
     size: '1',
@@ -67,10 +71,26 @@ async function lookupPlace(region, place) {
     clearTimeout(timeout)
   }
 
-  if (!response.ok) return null
+  if (!response.ok) {
+    const err = new Error(`Kakao Local API ${response.status}`)
+    err.status = response.status
+    throw err
+  }
 
   const data = await response.json()
   return data?.documents?.[0] || null
+}
+
+// 429(rate limit)/5xx/네트워크 오류는 일시적일 수 있어 한 번만 짧게 재시도한다. 401 등
+// 나머지 4xx(키 문제 등)는 재시도해도 똑같이 실패하므로 즉시 포기.
+async function lookupPlace(region, place) {
+  try {
+    return await lookupPlaceOnce(region, place)
+  } catch (error) {
+    if (error.status && error.status < 500 && error.status !== 429) throw error
+    await delay(400)
+    return lookupPlaceOnce(region, place)
+  }
 }
 
 async function lookupPlaceCached(region, place) {
@@ -111,7 +131,13 @@ export async function enrichPlacesWithKakao(region, places) {
     }))
   }
 
-  return mapWithConcurrency(places, KAKAO_CONCURRENCY, async (place) => {
+  // 개별 실패를 매번 로그로 남기면 지역 하나당 최대 40줄이 쏟아지니, 실패 건수/마지막 오류만
+  // 모아뒀다가 배치가 끝난 뒤 요약 한 줄로 남긴다 — "실패했는데 원인을 전혀 알 수 없는" 상태를
+  // 막기 위함(2026-07-20, 조용히 삼켜지던 실패를 진단하다 발견).
+  let errorCount = 0
+  let lastError = null
+
+  const results = await mapWithConcurrency(places, KAKAO_CONCURRENCY, async (place) => {
     try {
       const kakao = await lookupPlaceCached(region, place)
       const supported = Boolean(kakao?.id && kakao?.place_url)
@@ -125,7 +151,9 @@ export async function enrichPlacesWithKakao(region, places) {
         kakaoCategory: kakao?.category_name || '',
         kakaoSupported: supported,
       }
-    } catch {
+    } catch (error) {
+      errorCount += 1
+      lastError = error
       return {
         ...place,
         mapUrl: '',
@@ -134,4 +162,10 @@ export async function enrichPlacesWithKakao(region, places) {
       }
     }
   })
+
+  if (errorCount > 0) {
+    console.warn(`[kakaoLocal] ${region}: ${errorCount}/${places.length}곳 카카오 조회 실패 (마지막 오류: ${lastError?.message || lastError})`)
+  }
+
+  return results
 }

@@ -967,6 +967,11 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
     const extra = (place.slotId && courseInserted[place.slotId]) || []
     return [place, ...extra.flatMap(expandInserts)]
   }
+  // 실시간(tourApi) 모드에서는 카카오로 검증된 장소만 보여준다(지도 링크 신뢰성 보장).
+  // 실시간 데이터를 못 가져와 샘플로 대체된 코스(source !== 'tourApi')는 애초에 카카오
+  // 인증 자체가 없는 게 정상이라, 이 필터를 그대로 적용하면 전부 걸러져 빈 화면이 된다
+  // ("샘플 데이터" 배지는 이미 준비돼 있었는데 실제로는 필터에 막혀 안 쓰이고 있었음,
+  // 2026-07-20 발견) — 소스가 샘플일 땐 검증 필터를 건너뛴다.
   const effectiveDays = dayPlans.map((day) => {
     const withInserts = day.places.flatMap(expandInserts)
     return {
@@ -974,7 +979,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
       places: withInserts
         .filter((place) => !(place.slotId && courseRemoved[place.slotId]))
         .map(applyOverride)
-        .filter(isKakaoVerifiedPlace),
+        .filter((place) => course.source !== 'tourApi' || isKakaoVerifiedPlace(place)),
     }
   })
   const effectivePlaces = effectiveDays.flatMap((day) => day.places)
