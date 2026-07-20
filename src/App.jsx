@@ -829,21 +829,21 @@ function PersonalityScreen({ personality, onHome, onNext }) {
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col text-center sm:h-full sm:min-h-0">
       <HomeButton onClick={onHome} className="absolute right-4 top-5 z-20" />
       <div className="relative min-h-0 flex-1">
-      <div ref={scrollRef} className="h-full overflow-y-auto px-5 pb-4 pt-[68px]">
-        <div className="mx-auto rounded-full bg-teal-tint px-4 py-2 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
+      <div ref={scrollRef} className="h-full overflow-y-auto px-5 pb-4 pt-[56px]">
+        <div className="mx-auto rounded-full bg-teal-tint px-4 py-1.5 text-[12.5px] font-extrabold text-teal-deep">분석 완료</div>
         <img
           src={resultImage}
           alt="성향 결과 이미지"
-          className="mx-auto mt-9 h-[132px] w-[132px] rounded-[30px] object-contain shadow-card-soft"
+          className="mx-auto mt-5 h-[96px] w-[96px] rounded-[24px] object-contain shadow-card-soft"
         />
-        <p className="mt-8 text-sm font-bold text-ink-2">당신의 여름 여행 성향은</p>
-        <h2 className={`mt-2 text-[30px] font-extrabold ${tone.text}`}>{personality.label}</h2>
-        <div className="mt-6 rounded-card bg-white px-5 py-5 text-[14.5px] font-medium leading-relaxed text-[#3E4C51] shadow-card-soft">
+        <p className="mt-4 text-sm font-bold text-ink-2">당신의 여름 여행 성향은</p>
+        <h2 className={`mt-2 text-[26px] font-extrabold ${tone.text}`}>{personality.label}</h2>
+        <div className="mt-4 rounded-card bg-white px-5 py-3 text-[14.5px] font-medium leading-relaxed text-[#3E4C51] shadow-card-soft">
           {personality.desc[0]}
           <b className={tone.text}>{personality.desc[1]}</b>
           {personality.desc[2]}
         </div>
-        <BudgetPreview ratios={personality.ratios} className="mt-8" />
+        <BudgetPreview ratios={personality.ratios} className="mt-5" />
         <BottomBar>
           <PrimaryButton onClick={onNext}>내 맞춤 코스 보기</PrimaryButton>
         </BottomBar>
@@ -1936,9 +1936,9 @@ function AddPlaceSheet({ open, sightCandidates, cafeCandidates, onClose, onSelec
 function BudgetPreview({ ratios, className }) {
   return (
     <div className={className}>
-      <p className="mb-3 text-[12.5px] font-extrabold text-ink-3">예산 배분 미리보기</p>
+      <p className="mb-2 text-[12.5px] font-extrabold text-ink-3">예산 배분 미리보기</p>
       <RatioBar ratios={ratios} />
-      <div className="mt-3 flex justify-center gap-3 text-xs font-extrabold text-ink-2">
+      <div className="mt-2 flex justify-center gap-3 text-xs font-extrabold text-ink-2">
         <span>숙박 {ratios.stay}%</span>
         <span>식비 {ratios.food}%</span>
         <span>관광 {ratios.sight}%</span>
