@@ -127,13 +127,17 @@ function normalizeRoleForArrival(role, kind, day, arrivalTime) {
   return normalized || (kind === 'food' ? '점심' : '관광')
 }
 
-// AI가 첫날 식사 역할을 전부 "카페" 등으로만 붙이고 "점심"을 하나도 안 주는 경우가 있어(관측됨),
-// 저녁 도착이 아닌 첫날엔 항상 점심 하나는 있어야 한다는 원칙을 서버에서 강제 보정한다.
-// (앱 철학: 상식적인 기본 일정을 주고, 필요 없으면 유저가 직접 "빼기"로 지운다.)
+// AI가 첫날 식사 역할을 전부 "카페"/"마무리 카페" 등으로만 붙이고 "점심"을 하나도 안 주는
+// 경우가 있어(관측됨), 저녁 도착이 아닌 첫날엔 항상 점심 하나는 있어야 한다는 원칙을 서버에서
+// 강제 보정한다. (앱 철학: 상식적인 기본 일정을 주고, 필요 없으면 유저가 직접 "빼기"로 지운다.)
+// "마무리 카페"는 예전엔 승격 대상에서 제외했었는데, 그 날 식사류 후보가 그 장소 하나뿐이면
+// 점심이 끝내 하나도 안 생기고, roleOrder 정렬상 관광(50)이 마무리 카페(70)보다 앞서서
+// "관광이 1번으로 나오는" 회귀가 있었음(2026-07-20, 실사용 리뷰로 발견) — "저녁"으로 이미
+// 확정된 것만 제외하고 나머지는 점심 후보로 쓸 수 있게 완화.
 function ensureLunchRole(dayPlaces, day, arrivalTime) {
   if (day !== 1 || arrivalTime === '저녁') return dayPlaces
   if (dayPlaces.some((p) => p.role === '점심')) return dayPlaces
-  const idx = dayPlaces.findIndex((p) => p.kind === 'food' && p.role !== '저녁' && p.role !== '마무리 카페')
+  const idx = dayPlaces.findIndex((p) => p.kind === 'food' && p.role !== '저녁')
   if (idx === -1) return dayPlaces
   return dayPlaces.map((p, i) => (i === idx ? { ...p, role: '점심' } : p))
 }
