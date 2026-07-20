@@ -174,6 +174,12 @@ function sortDayPlacesByTimeFlow(dayPlaces, day, arrivalTime) {
 // AI의 days(id+role) → 실제 place 객체로 복원. places 스냅샷은 검증에 쓴 것과 동일해야 함(호출자 보장).
 function resolveDays(planDays, places, totalDays, arrivalTime) {
   const days = []
+  // 지역에 식사류(kind==='food') 후보가 적으면 AI가 특정 날엔 식사류를 아예 하나도 안 고를
+  // 수 있다(관광지 위주 지방에서 관측, 2026-07-20). 그 날 배열에 식사류가 하나도 없으면
+  // 전체 후보 스냅샷에서 식사류를 하나 끌어와 관광 슬롯 하나와 바꿔치기하는 안전망을 둔다
+  // (courses.js의 규칙 기반 경로에 있는 동일한 안전망과 짝을 맞춤).
+  const foodCandidates = places.filter((p) => p?.kind === 'food')
+  let foodTopUpCursor = 0
   for (const d of (planDays || []).slice().sort((a, b) => (a.day || 0) - (b.day || 0))) {
     const dayPlaces = []
     ;(d.items || []).forEach((it, i) => {
@@ -182,6 +188,13 @@ function resolveDays(planDays, places, totalDays, arrivalTime) {
       const slotId = p.kind === 'stay' ? 'stay' : `d${d.day}p${i}`
       dayPlaces.push({ ...p, role: String(it.role || ''), slotId })
     })
+    if (dayPlaces.length && foodCandidates.length && !dayPlaces.some((p) => p.kind === 'food')) {
+      const swapIdx = dayPlaces.findIndex((p) => p.kind !== 'stay')
+      if (swapIdx !== -1) {
+        dayPlaces[swapIdx] = { ...foodCandidates[foodTopUpCursor % foodCandidates.length], role: '', slotId: dayPlaces[swapIdx].slotId }
+        foodTopUpCursor += 1
+      }
+    }
     if (dayPlaces.length) {
       days.push({
         day: d.day,

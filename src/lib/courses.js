@@ -356,9 +356,18 @@ function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, can
   const nonStayBase = places.filter((place) => place.kind !== 'stay')
   const candidateNonStay = candidatePlaces.filter((place) => place.kind !== 'stay')
   const syntheticNonStay = allowSyntheticPlaces ? extraPlaces(city, axis) : []
-  const nonStayPool = orderFirstDayPlaces(mergeUniquePlaces(nonStayBase, candidateNonStay, syntheticNonStay), arrivalTime)
+  const merged = mergeUniquePlaces(nonStayBase, candidateNonStay, syntheticNonStay)
+  const nonStayPool = orderFirstDayPlaces(merged, arrivalTime)
+  // 식사류 후보만 따로 모아둔다 — 커서(cursor)는 전체 기간에 걸쳐 공유돼서, 지역에 식사류
+  // 후보가 적으면(예: 관광지 위주 지방) 1일차가 그 얼마 안 되는 식사류를 다 써버리고 2일차
+  // 이후엔 관광지만 남는 문제가 있었다(2026-07-20, 실사용 리뷰로 발견 — 관광만 나오는 날 재현).
+  // 커서 배분 방식 자체를 바꾸는 대신, 하루치 배열에 식사류가 하나도 안 뽑혔을 때만 관광 슬롯
+  // 하나를 식사류로 바꿔치기하는 최소한의 안전망을 둔다(식사류가 부족하면 여러 날에 걸쳐
+  // 같은 곳이 반복될 수 있는데, 그래도 매일 관광만 나오는 것보단 훨씬 낫다).
+  const foodPool = merged.filter((p) => p.kind === 'food')
   const days = []
   let cursor = 0
+  let foodTopUpCursor = 0
 
   for (let day = 1; day <= totalDays; day += 1) {
     const isStayNight = !isDayTrip && day < totalDays && stay
@@ -369,6 +378,14 @@ function buildDayPlans({ city, axis, period, arrivalTime = '오후', places, can
       if (!nonStayPool.length) break
       dayPlaces.push({ ...nonStayPool[cursor % nonStayPool.length], slotId: `d${day}p${i}` })
       cursor += 1
+    }
+
+    if (dayPlaces.length && foodPool.length && !dayPlaces.some((p) => p.kind === 'food')) {
+      const swapIdx = dayPlaces.findIndex((p) => p.kind !== 'stay')
+      if (swapIdx !== -1) {
+        dayPlaces[swapIdx] = { ...foodPool[foodTopUpCursor % foodPool.length], slotId: dayPlaces[swapIdx].slotId }
+        foodTopUpCursor += 1
+      }
     }
 
     if (isStayNight) {
