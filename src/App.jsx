@@ -386,39 +386,27 @@ function PhoneShell({ children, tone }) {
   )
 }
 
-// 삽화 원본 비율(폭:860 높이:2400) 기준, 섬 일러스트는 세로 61.25% 지점에서 끝나고
-// 그 아래는 평평한 바다색이다. 버튼 블록의 실제 렌더 위치(플렉스 레이아웃 결과, 배경
-// 이미지 크기와 무관하게 정해짐)를 측정해서, 일러스트 하단이 버튼 위쪽과 겹칠 때만
-// 비율을 유지한 채(레터박스만 생기고 찌그러지지 않게) 축소한다. 정상적으로 여백이
-// 충분한 화면(기존 디자인)에서는 손대지 않고 폭 100%로 그대로 채운다.
-const SPLASH_IMG_W = 860
-const SPLASH_IMG_H = 2400
-const SPLASH_ARTWORK_BOTTOM_FRACTION = 0.6125
-const SPLASH_SAFETY_BUFFER_PX = 16
+// 배경 이미지(splash-background.jpg)는 가장자리에 은은한 비네팅(그라데이션)이 있어서,
+// 화면이 짧아 이미지를 축소했을 때 생기는 여백을 단색으로 채우면 색이 미묘하게 안 맞아
+// 세로 경계선처럼 보이는 문제가 있었다(2026-07-20, 실기기 스크린샷으로 확인). 그래서
+// 이미지 크기는 항상 폭 100%로 고정하고, 대신 버튼 블록 바로 위쪽부터 배경색으로 자연스럽게
+// 페이드아웃되는 그라데이션을 얹어서 버튼이 삽화와 겹치지 않게 한다 — 좌우 경계가 없는
+// 위→아래 그라데이션이라 이미지 색이 정확히 안 맞아도 티가 안 난다.
+const SPLASH_FADE_LEAD_PX = 110
 
 function Splash({ onStart, onViewSaved, hasSaved }) {
   const containerRef = useRef(null)
   const buttonBlockRef = useRef(null)
-  const [bgSize, setBgSize] = useState(null)
+  const [fadeHeight, setFadeHeight] = useState(0)
 
   useEffect(() => {
     const recompute = () => {
       const el = containerRef.current
       const btn = buttonBlockRef.current
       if (!el || !btn) return
-      const w = el.clientWidth
+      const containerHeight = el.clientHeight
       const buttonTop = btn.getBoundingClientRect().top - el.getBoundingClientRect().top
-      const widthBasedHeight = w * (SPLASH_IMG_H / SPLASH_IMG_W)
-      const artworkBottom = widthBasedHeight * SPLASH_ARTWORK_BOTTOM_FRACTION
-      if (buttonTop - artworkBottom >= SPLASH_SAFETY_BUFFER_PX) {
-        setBgSize(null)
-      } else {
-        const maxAllowedHeight = Math.max(
-          (buttonTop - SPLASH_SAFETY_BUFFER_PX) / SPLASH_ARTWORK_BOTTOM_FRACTION,
-          el.clientHeight * 0.4,
-        )
-        setBgSize({ width: maxAllowedHeight * (SPLASH_IMG_W / SPLASH_IMG_H), height: maxAllowedHeight })
-      }
+      setFadeHeight(Math.max(0, containerHeight - buttonTop + SPLASH_FADE_LEAD_PX))
     }
     recompute()
     window.addEventListener('resize', recompute)
@@ -428,14 +416,15 @@ function Splash({ onStart, onViewSaved, hasSaved }) {
   return (
     <div
       ref={containerRef}
-      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:h-full sm:min-h-0"
-      style={{
-        backgroundColor: '#3FB3B4',
-        backgroundImage: `url(${splashBackground})`,
-        backgroundPosition: 'top center',
-        backgroundSize: bgSize ? `${bgSize.width}px ${bgSize.height}px` : '100% auto',
-      }}
+      className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#3FB3B4] bg-[length:100%_auto] bg-top bg-no-repeat px-7 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[72px] text-white sm:h-full sm:min-h-0"
+      style={{ backgroundColor: '#3FB3B4', backgroundImage: `url(${splashBackground})` }}
     >
+      {fadeHeight > 0 && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0"
+          style={{ height: `${fadeHeight}px`, background: 'linear-gradient(to bottom, transparent, #3FB3B4 75%)' }}
+        />
+      )}
       <div className="relative z-10 mx-auto rounded-full bg-white/18 px-5 py-2.5 text-[13px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-sm">
         AI 여행 코스 추천
       </div>
