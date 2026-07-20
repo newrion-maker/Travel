@@ -5,7 +5,7 @@ import regionData from './data/regions.json'
 import curatedData from './data/curated-regions.json'
 import { formatKRW, sumCostRange, budgetState, formatPlaceCost, scalePlacesCost } from './lib/budget.js'
 import { computePersonality } from './lib/personality.js'
-import { generateCourses } from './lib/courses.js'
+import { generateCourses, isCafePlace } from './lib/courses.js'
 import { fetchTourPlaces, hasTourApiKey } from './lib/tourApi.js'
 import { getDailyGenCount, incrementDailyGenCount } from './lib/dailyLimit.js'
 import { getSavedCourses, saveCourse, removeSavedCourse } from './lib/savedCourses.js'
@@ -945,7 +945,9 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
   const [saveStatus, setSaveStatus] = useState('')
   const [overrides, setOverrides] = useState({}) // { [courseKey]: { [slotId]: place } } — 탭별 스왑
   const [removed, setRemoved] = useState({}) // { [courseKey]: { [slotId]: true } } — 유저가 뺀 장소
+  const [inserted, setInserted] = useState({}) // { [courseKey]: { [afterSlotId]: place[] } } — 유저가 추가한 장소
   const [swapTarget, setSwapTarget] = useState(null) // { slotId, kind } | null
+  const [addTarget, setAddTarget] = useState(null) // { afterSlotId } | null
   const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
   const baseCourse = courses[activeIndex]
   const ai = aiPlans?.[baseCourse.key]
@@ -964,28 +966,52 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
     const rep = place.slotId ? courseOverrides[place.slotId] : null
     return rep ? { ...rep, slotId: place.slotId, role: place.role } : place
   }
-  const effectiveDays = dayPlans.map((day) => ({
-    ...day,
-    places: day.places
-      .filter((place) => !(place.slotId && courseRemoved[place.slotId]))
-      .map(applyOverride)
-      .filter(isKakaoVerifiedPlace),
-  }))
+  const courseInserted = inserted[course.key] || {}
+  // 삽입된 장소는 앵커(직전 장소) 바로 뒤에 스플라이스한 뒤, 기존 삭제 필터/오버라이드/검증
+  // 필터를 그 합쳐진 배열에 한 번에 적용한다 — 그래야 나중에 추가한 장소를 다시 빼거나
+  // 바꾸기해도 기존 로직(slotId 기준)이 그대로 먹힌다.
+  // 재귀 확장: 삽입된 장소 자신도 새 slotId를 갖고 있어서 "삽입한 장소 뒤에 또 삽입"(연쇄
+  // 삽입)이 가능한데, 원본 day.places 배열만 한 번 훑으면 그렇게 연쇄로 끼운 항목은
+  // courseInserted에 값이 있어도 화면에 안 나타난다 — 앵커가 원본 배열에 없기 때문. 그래서
+  // 각 장소를 펼칠 때 그 장소 밑에 달린 삽입분도 재귀적으로 펼친다.
+  const expandInserts = (place) => {
+    const extra = (place.slotId && courseInserted[place.slotId]) || []
+    return [place, ...extra.flatMap(expandInserts)]
+  }
+  const effectiveDays = dayPlans.map((day) => {
+    const withInserts = day.places.flatMap(expandInserts)
+    return {
+      ...day,
+      places: withInserts
+        .filter((place) => !(place.slotId && courseRemoved[place.slotId]))
+        .map(applyOverride)
+        .filter(isKakaoVerifiedPlace),
+    }
+  })
   const effectivePlaces = effectiveDays.flatMap((day) => day.places)
   const effectiveCourse = { ...course, days: effectiveDays, places: effectivePlaces }
   const currentDay = effectiveDays[Math.min(activeDay, effectiveDays.length - 1)]
   const editedCount = Object.keys(courseOverrides).length
   const removedCount = Object.keys(courseRemoved).length
-  const changeNote = [editedCount && `바꾼 ${editedCount}곳`, removedCount && `뺀 ${removedCount}곳`].filter(Boolean).join(' · ')
+  const insertedCount = Object.values(courseInserted).reduce((n, arr) => n + arr.length, 0)
+  const changeNote = [editedCount && `바꾼 ${editedCount}곳`, removedCount && `뺀 ${removedCount}곳`, insertedCount && `추가 ${insertedCount}곳`]
+    .filter(Boolean)
+    .join(' · ')
 
   const usedNames = new Set(effectivePlaces.map((p) => p.name))
-  // tourPlaces는 인원수 반영 전(1인 기준) 원가라, 스왑 후보로 보여줄 때도 코스 생성 때와
+  // tourPlaces는 인원수 반영 전(1인 기준) 원가라, 스왑/추가 후보로 보여줄 때도 코스 생성 때와
   // 동일하게 인원수만큼 곱해줘야 실제 코스에 들어간 장소들과 비용 기준이 맞는다.
   const verifiedTourPlaces = scalePlacesCost((tourPlaces || []).filter(isKakaoVerifiedPlace), input.party)
   const hasCandidates = (kind) => verifiedTourPlaces.some((p) => p.kind === kind && !usedNames.has(p.name))
   const baseSlotPlace = (slotId) => dayPlans.flatMap((d) => d.places).find((p) => p.slotId === slotId)
   const swapCandidates = swapTarget ? verifiedTourPlaces.filter((p) => p.kind === swapTarget.kind && !usedNames.has(p.name)) : []
   const swapCurrent = swapTarget ? effectivePlaces.find((p) => p.slotId === swapTarget.slotId) : null
+  // "추가" 후보는 관광지 또는 카페/디저트류 식음료 장소로만 제한한다 — 정식 식사(밥집)를
+  // 중간에 끼우면 assignDayRoles의 끼니 슬롯(첫 N개 food 장소를 점심/저녁으로 채우는 로직)과
+  // 충돌해 기존 점심/저녁 라벨이 흐트러질 수 있어, 그 로직을 아예 안 건드리게 범위를 좁힘.
+  const sightAddCandidates = verifiedTourPlaces.filter((p) => p.kind === 'sight' && !usedNames.has(p.name))
+  const cafeAddCandidates = verifiedTourPlaces.filter((p) => p.kind === 'food' && isCafePlace(p) && !usedNames.has(p.name))
+  const hasAnyAddCandidates = sightAddCandidates.length > 0 || cafeAddCandidates.length > 0
 
   const setSlot = (slotId, place) => setOverrides((prev) => ({ ...prev, [course.key]: { ...(prev[course.key] || {}), [slotId]: place } }))
   const clearSlot = (slotId) =>
@@ -999,9 +1025,25 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
     clearSlot(slotId) // 뺀 장소의 스왑 기록은 정리
   }
   const restoreRemoved = () => setRemoved((prev) => ({ ...prev, [course.key]: {} }))
+  const commitInsert = (afterSlotId, place) => {
+    const role = place.kind === 'sight' ? '관광' : isCafePlace(place) ? '카페' : null
+    if (!role) return // 방어: 후보 목록 자체를 관광/카페로 제한했지만 이중 방어
+    // Date.now()만 쓰면 같은 밀리초 안에 두 번 클릭(더블탭 등)했을 때 slotId가 충돌할 수 있어
+    // 랜덤 접미사를 덧붙인다.
+    const newSlotId = `${afterSlotId}-add${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const newPlace = { ...place, role, slotId: newSlotId }
+    setInserted((prev) => ({
+      ...prev,
+      [course.key]: {
+        ...(prev[course.key] || {}),
+        [afterSlotId]: [...((prev[course.key] || {})[afterSlotId] || []), newPlace],
+      },
+    }))
+  }
   const resetCourse = () => {
     setOverrides((prev) => ({ ...prev, [course.key]: {} }))
     setRemoved((prev) => ({ ...prev, [course.key]: {} }))
+    setInserted((prev) => ({ ...prev, [course.key]: {} }))
   }
 
   return (
@@ -1073,17 +1115,44 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
             </div>
             <div className="mt-3">
               {currentDay.places.length ? (
-                currentDay.places.map((place, idx) => (
-                  <Fragment key={`${place.slotId || place.name}-${idx}`}>
-                    <PlaceRow
-                      place={place}
-                      index={idx + 1}
-                      onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
-                      onRemove={place.slotId ? () => removeSlot(place.slotId) : null}
-                    />
-                    {idx < currentDay.places.length - 1 && <DistanceHop from={place} to={currentDay.places[idx + 1]} />}
-                  </Fragment>
-                ))
+                <>
+                  {currentDay.places.map((place, idx) => (
+                    <Fragment key={`${place.slotId || place.name}-${idx}`}>
+                      <PlaceRow
+                        place={place}
+                        index={idx + 1}
+                        onSwap={place.slotId && hasCandidates(place.kind) ? () => setSwapTarget({ slotId: place.slotId, kind: place.kind }) : null}
+                        onRemove={place.slotId ? () => removeSlot(place.slotId) : null}
+                      />
+                      {idx < currentDay.places.length - 1 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <DistanceHop from={place} to={currentDay.places[idx + 1]} />
+                          {place.slotId && hasAnyAddCandidates && (
+                            <button
+                              type="button"
+                              onClick={() => setAddTarget({ afterSlotId: place.slotId })}
+                              className="h-6 shrink-0 rounded-full bg-[#F0F3F3] px-2 text-[10.5px] font-extrabold text-teal-deep"
+                            >
+                              + 추가
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </Fragment>
+                  ))}
+                  {(() => {
+                    const lastPlace = currentDay.places[currentDay.places.length - 1]
+                    return lastPlace.slotId && hasAnyAddCandidates ? (
+                      <button
+                        type="button"
+                        onClick={() => setAddTarget({ afterSlotId: lastPlace.slotId })}
+                        className="mt-2 h-9 w-full rounded-[12px] border border-dashed border-line text-[12.5px] font-extrabold text-teal-deep"
+                      >
+                        + 이 코스에 추가
+                      </button>
+                    ) : null
+                  })()}
+                </>
               ) : (
                 <div className="rounded-[13px] bg-screen px-4 py-5 text-center text-[13px] font-bold leading-relaxed text-ink-2">
                   카카오맵에서 확인된 장소를 찾지 못했어요.
@@ -1096,7 +1165,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
           <MapPreview places={currentDay.places} source={effectivePlaces.length ? course.source : 'sample'} className="mt-4" />
         </article>
         <BottomBar>
-          {(editedCount > 0 || removedCount > 0) && (
+          {(editedCount > 0 || removedCount > 0 || insertedCount > 0) && (
             <div className="mb-2 flex items-center justify-between gap-2 rounded-[12px] bg-amber/10 px-3 py-2">
               <span className="text-[11px] font-semibold leading-snug text-amber-text">{changeNote} · 공유 링크엔 AI 기본 코스가 담겨요</span>
               <button type="button" onClick={resetCourse} className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-teal-deep">
@@ -1164,6 +1233,16 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         onRevert={() => {
           clearSlot(swapTarget.slotId)
           setSwapTarget(null)
+        }}
+      />
+      <AddPlaceSheet
+        open={Boolean(addTarget)}
+        sightCandidates={sightAddCandidates}
+        cafeCandidates={cafeAddCandidates}
+        onClose={() => setAddTarget(null)}
+        onSelect={(place) => {
+          commitInsert(addTarget.afterSlotId, place)
+          setAddTarget(null)
         }}
       />
     </div>
@@ -1778,6 +1857,73 @@ function SwapSheet({ open, currentPlace, basePlace, candidates, onClose, onSelec
                 )
               })}
               {!candidates.length && <p className="py-8 text-center text-sm font-semibold text-ink-3">이 지역엔 바꿀 후보가 없어요</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// SwapSheet의 후보 목록/후보 카드 UI를 그대로 재사용하되, "바꿀 대상 kind"가 고정된 스왑과
+// 달리 추가는 카테고리(관광/카페·디저트)를 유저가 직접 골라야 해서 탭이 하나 더 있다.
+function AddPlaceSheet({ open, sightCandidates, cafeCandidates, onClose, onSelect }) {
+  const [tab, setTab] = useState('sight')
+  if (!open) return null
+  const candidates = tab === 'sight' ? sightCandidates : cafeCandidates
+  const kindTone = (kind) =>
+    kind === 'stay' ? 'bg-teal-tint text-teal-deep' : kind === 'food' ? 'bg-coral-tint text-coral-deep' : 'bg-amber/15 text-amber-text'
+
+  return createPortal(
+    <div className="fixed inset-0 z-50">
+      <button type="button" aria-label="닫기" onClick={onClose} className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[430px]">
+        <div className="animate-fade-slide flex max-h-[82vh] flex-col rounded-t-[24px] bg-white pb-6 shadow-2xl">
+          <div className="flex items-center gap-2 px-4 pt-4">
+            <span className="h-9 w-9" />
+            <h3 className="flex-1 text-center text-base font-extrabold">일정에 추가하기</h3>
+            <button type="button" onClick={onClose} className="h-9 w-9 rounded-full text-lg font-bold text-ink-3" aria-label="닫기">
+              ✕
+            </button>
+          </div>
+          <div className="px-4 pt-2">
+            <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-[#E9EEEE] p-1">
+              <button
+                type="button"
+                onClick={() => setTab('sight')}
+                className={`h-9 rounded-sq-lg text-[12.5px] font-extrabold ${tab === 'sight' ? 'bg-white text-ink shadow-seg' : 'text-[#7B8A8F]'}`}
+              >
+                관광
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('cafe')}
+                className={`h-9 rounded-sq-lg text-[12.5px] font-extrabold ${tab === 'cafe' ? 'bg-white text-ink shadow-seg' : 'text-[#7B8A8F]'}`}
+              >
+                카페·디저트
+              </button>
+            </div>
+          </div>
+          <p className="px-4 pb-1 pt-2 text-center text-[11.5px] font-semibold text-ink-3">고르면 이 자리 다음에 바로 끼워 넣어요</p>
+          <div className="mt-2 flex-1 overflow-y-auto px-4">
+            <div className="grid gap-2 pb-2">
+              {candidates.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  onClick={() => onSelect(c)}
+                  className="flex items-center gap-3 rounded-[12px] border border-line bg-white px-3 py-2.5 text-left hover:bg-screen"
+                >
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sq text-[12px] font-extrabold ${kindTone(c.kind)}`}>{c.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-bold">{c.name}</p>
+                    <p className="truncate text-[11px] font-semibold text-ink-3">{c.kakaoAddress || c.tag}</p>
+                  </div>
+                  <p className="shrink-0 text-[12px] font-bold text-ink-2">{formatPlaceCost(c)}</p>
+                </button>
+              ))}
+              {!candidates.length && <p className="py-8 text-center text-sm font-semibold text-ink-3">추가할 후보가 없어요</p>}
             </div>
           </div>
         </div>
