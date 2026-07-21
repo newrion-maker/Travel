@@ -34,6 +34,7 @@ export function saveCourse({ input, course }) {
     regionLabel: input.regionLabel || input.region,
     period: input.period,
     arrivalTime: input.arrivalTime,
+    party: input.party,
     course,
   }
   writeAll([entry, ...readAll()].slice(0, MAX_SAVED))

@@ -112,32 +112,68 @@ function normalizeTourPlace(item) {
   }
 }
 
+async function fetchAreaBasedList({ areaCode, sigunguCode, contentTypeId, numOfRows, serviceKey, region, required }) {
+  const params = new URLSearchParams({
+    MobileOS: 'ETC',
+    MobileApp: 'summer-travel-course',
+    _type: 'json',
+    numOfRows: String(numOfRows),
+    pageNo: '1',
+    arrange: 'Q',
+    areaCode,
+    sigunguCode,
+    ...(contentTypeId ? { contentTypeId } : {}),
+  })
+
+  let response
+  try {
+    response = await fetchWithRetry(`${TOUR_API_BASE}/areaBasedList2?serviceKey=${serviceKey}&${params.toString()}`)
+  } catch (error) {
+    if (required) throw error
+    return []
+  }
+
+  if (!response.ok) {
+    if (required) {
+      console.warn(`[tourApi] ${region} 실시간 장소 조회 실패 (HTTP ${response.status}) → 샘플 데이터로 대체`)
+      throw new Error(`TourAPI request failed: ${response.status}`)
+    }
+    return []
+  }
+
+  const data = await response.json()
+  const rawItems = data?.response?.body?.items?.item
+  return Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : []
+}
+
 export async function fetchTourPlaces(region) {
   const key = tourApiKey()
   if (!key || key.includes('여기에_')) return []
 
   const { areaCode, sigunguCode } = regionParams(region)
-  const params = new URLSearchParams({
-    MobileOS: 'ETC',
-    MobileApp: 'summer-travel-course',
-    _type: 'json',
-    numOfRows: '40',
-    pageNo: '1',
-    arrange: 'Q',
-    areaCode,
-    sigunguCode,
-  })
   const serviceKey = key.includes('%') ? key : encodeURIComponent(key)
-  const response = await fetchWithRetry(`${TOUR_API_BASE}/areaBasedList2?serviceKey=${serviceKey}&${params.toString()}`)
+  const common = { areaCode, sigunguCode, serviceKey, region }
 
-  if (!response.ok) {
-    console.warn(`[tourApi] ${region} 실시간 장소 조회 실패 (HTTP ${response.status}) → 샘플 데이터로 대체`)
-    throw new Error(`TourAPI request failed: ${response.status}`)
-  }
+  // 카테고리 구분 없이 인기순(Q)으로 40개만 뽑으면, 관광지·맛집이 많은 지역(예: 성심당
+  // 있는 대전 중구)에서는 숙박 항목이 순위 밖으로 완전히 밀려서 코스에 숙소가 하나도
+  // 안 잡히는 문제가 있었음(2026-07-21, 실사용 피드백으로 발견 — 1일차에 숙박 자체가
+  // 안 보임). 숙박(32)·음식(39)은 최소 수량을 보장하도록 따로 조회해서 합친다. 메인
+  // 조회(전체 카테고리 혼합)가 실패하면 기존처럼 샘플로 폴백하되, 보강 조회 둘은 실패해도
+  // 조용히 빈 배열로 넘어가 전체 흐름을 막지 않는다.
+  const [general, stayItems, foodItems] = await Promise.all([
+    fetchAreaBasedList({ ...common, numOfRows: 40, required: true }),
+    fetchAreaBasedList({ ...common, contentTypeId: '32', numOfRows: 10, required: false }),
+    fetchAreaBasedList({ ...common, contentTypeId: '39', numOfRows: 10, required: false }),
+  ])
 
-  const data = await response.json()
-  const rawItems = data?.response?.body?.items?.item
-  const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : []
+  const seen = new Set()
+  const dedupe = (list) =>
+    list.filter((item) => {
+      if (!item?.contentid || seen.has(item.contentid)) return false
+      seen.add(item.contentid)
+      return true
+    })
+  const items = [...dedupe(stayItems), ...dedupe(foodItems), ...dedupe(general)]
   const places = items.map(normalizeTourPlace).filter((place) => place.name)
   return enrichPlacesWithKakao(region, places)
 }

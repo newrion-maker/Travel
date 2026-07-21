@@ -1049,7 +1049,12 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
 
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
-      <Header title="추천 코스" onBack={onBack} onHome={onHome} right={`${input.regionLabel || input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착`} />
+      <Header
+        title="추천 코스"
+        onBack={onBack}
+        onHome={onHome}
+        right={`${input.regionLabel || input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착 · ${input.party}명`}
+      />
       <div className="px-4 pt-2">
         <div className="grid rounded-[14px] bg-[#E9EEEE] p-1" style={{ gridTemplateColumns: `repeat(${courses.length}, minmax(0, 1fr))` }}>
           {courses.map((item, idx) => (
@@ -1300,7 +1305,12 @@ function SavedCourseDetailScreen({ entry, onBack, onHome, onDelete }) {
 
   return (
     <div className="relative flex h-[100dvh] min-h-[100dvh] flex-col sm:h-full sm:min-h-0">
-      <Header title="저장한 코스" onBack={onBack} onHome={onHome} right={`${entry.regionLabel} · ${entry.period} · ${entry.arrivalTime} 도착`} />
+      <Header
+        title="저장한 코스"
+        onBack={onBack}
+        onHome={onHome}
+        right={`${entry.regionLabel} · ${entry.period} · ${entry.arrivalTime} 도착${entry.party ? ` · ${entry.party}명` : ''}`}
+      />
       <div className="relative min-h-0 flex-1">
       <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-4 pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">
@@ -1384,7 +1394,7 @@ function Header({ title, onBack, onHome, right }) {
         <span className="h-9 w-9" />
       )}
       <h1 className="text-base font-extrabold">{title}</h1>
-      {right && <span className="ml-auto max-w-[150px] truncate text-[11.5px] font-bold text-ink-3">{right}</span>}
+      {right && <span className="ml-auto max-w-[185px] truncate text-[11.5px] font-bold text-ink-3">{right}</span>}
       {onHome && <HomeButton onClick={onHome} />}
     </header>
   )
