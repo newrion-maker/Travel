@@ -366,7 +366,7 @@ export default function App() {
           />
         )}
       </ErrorBoundary>
-        <AdGateModal open={adGateOpen} onComplete={handleAdComplete} onClose={() => setAdGateOpen(false)} />
+        <AdGateModal open={adGateOpen} shouldPreload={screen !== 'splash'} onComplete={handleAdComplete} onClose={() => setAdGateOpen(false)} />
       </PhoneShell>
     </main>
   )
@@ -1545,32 +1545,88 @@ const AD_GATE_SECONDS = 5
 // 전면형 광고 게이트: 앱인토스 안에서는 실제 전면 광고(loadFullScreenAd/showFullScreenAd)를 띄우고,
 // 광고 시청/닫힘 시 onComplete로 진행한다. 앱인토스 밖(로컬·사파리 테스트)에서는 실제 광고를
 // 붙일 수 없으므로 타이머로 "광고 시청"을 흉내낸 목업 모달로 대체한다.
-function AdGateModal({ open, onComplete, onClose }) {
+//
+// shouldPreload가 true가 되는 시점(스플래시를 벗어난 직후)부터 미리 loadFullScreenAd를
+// 불러와둔다 — 안 그러면 유저가 게이트를 실제로 마주친 "그 순간"에야 로드가 시작돼서,
+// 로드 완료까지 화면에 아무 반응도 없어 지연이 버그처럼 느껴진다(2026-07-20, 실사용
+// 피드백으로 발견). 미리 불러온 광고가 준비돼 있으면 열자마자 바로 보여주고, 아직
+// 준비가 안 됐으면(연타 등 드문 경우) 기존처럼 그 자리에서 로드→표시로 대체한다.
+function AdGateModal({ open, shouldPreload, onComplete, onClose }) {
   const [remaining, setRemaining] = useState(AD_GATE_SECONDS)
   const supportsFullScreenAd = safeIsTossAdsSupported(loadFullScreenAd.isSupported) && safeIsTossAdsSupported(showFullScreenAd.isSupported)
+  const adStatusRef = useRef('idle') // 'idle' | 'loading' | 'ready'
+
+  // 상태를 ref로 두는 이유: 리렌더를 유발할 필요 없이(모달이 닫혀 있어도 백그라운드에서
+  // 계속 준비돼 있어야 함) "지금 로드해도 되는지"만 동기적으로 판단하면 되기 때문. 대신
+  // ref 변경은 effect를 다시 안 돌리므로, "다 보여준 뒤 다음 걸 미리 불러오기"는 이 함수를
+  // 직접 다시 호출해서(effect 의존성에 기대지 않고) 트리거한다.
+  const preloadAd = () => {
+    if (!supportsFullScreenAd || adStatusRef.current !== 'idle') return
+    adStatusRef.current = 'loading'
+    loadFullScreenAd({
+      options: { adGroupId: FULLSCREEN_AD_GROUP_ID },
+      onEvent: (e) => {
+        if (e.type === 'loaded') adStatusRef.current = 'ready'
+      },
+      onError: () => {
+        adStatusRef.current = 'idle' // 실패해도 조용히 idle로 되돌려서 다음 기회에 다시 시도
+      },
+    })
+  }
+
+  useEffect(() => {
+    if (shouldPreload) preloadAd()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldPreload, supportsFullScreenAd])
 
   useEffect(() => {
     if (!open) return undefined
 
     if (supportsFullScreenAd) {
       let cancelled = false
+
+      const showLoadedAd = () => {
+        showFullScreenAd({
+          options: { adGroupId: FULLSCREEN_AD_GROUP_ID },
+          onEvent: (se) => {
+            if (cancelled) return
+            // 광고를 닫았거나(dismissed) 표시에 실패했으면(failedToShow) 진행을 막지 않는다.
+            if (se.type === 'dismissed' || se.type === 'failedToShow') {
+              adStatusRef.current = 'idle'
+              preloadAd() // 다음 게이트를 대비해 바로 다음 광고를 미리 불러와둔다
+              onComplete()
+            }
+          },
+          onError: () => {
+            if (!cancelled) {
+              adStatusRef.current = 'idle'
+              onComplete()
+            }
+          },
+        })
+      }
+
+      if (adStatusRef.current === 'ready') {
+        showLoadedAd()
+        return () => {
+          cancelled = true
+        }
+      }
+
+      // 미리 불러오기가 아직 안 끝났으면(연타 등 드문 경우) 기존처럼 그 자리에서 로드→표시.
+      adStatusRef.current = 'loading'
       const disposeLoad = loadFullScreenAd({
         options: { adGroupId: FULLSCREEN_AD_GROUP_ID },
         onEvent: (e) => {
           if (cancelled || e.type !== 'loaded') return
-          showFullScreenAd({
-            options: { adGroupId: FULLSCREEN_AD_GROUP_ID },
-            onEvent: (se) => {
-              // 광고를 닫았거나(dismissed) 표시에 실패했으면(failedToShow) 진행을 막지 않는다.
-              if (!cancelled && (se.type === 'dismissed' || se.type === 'failedToShow')) onComplete()
-            },
-            onError: () => {
-              if (!cancelled) onComplete()
-            },
-          })
+          adStatusRef.current = 'ready'
+          showLoadedAd()
         },
         onError: () => {
-          if (!cancelled) onComplete() // 로드 실패 시에도 사용자를 막지 않고 통과시킨다.
+          if (!cancelled) {
+            adStatusRef.current = 'idle'
+            onComplete() // 로드 실패 시에도 사용자를 막지 않고 통과시킨다.
+          }
         },
       })
       return () => {
