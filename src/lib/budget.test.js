@@ -78,6 +78,22 @@ describe('budgetState', () => {
   it('is "near" when the range straddles the budget', () => {
     expect(budgetState({ min: 4000, max: 6000 }, 5000)).toBe('near')
   })
+  // 2026-07-21 회귀: 장소별 비용 범위를 그냥 합산하면(sumCostRange) 폭이 장소 개수만큼
+  // 누적돼서, 코스가 길수록(1박2일 이상) 범위가 예산선에 걸치기 쉬워진다. "합해보면 확실히
+  // 부족한데 근처/초과로 뜬다"는 실사용 피드백으로 발견 — 중간값(mid) 기준으로 판단해야 함.
+  it('is "under" when the range is wide but the midpoint is comfortably below budget', () => {
+    // mid = 100,000, budget(150,000)의 10% 여유(135,000)보다 확실히 낮음 — 범위 폭(40,000~160,000)이
+    // 넓어도 실제로는 여유 있는 코스인데, 예전 로직이면 max(160,000)>budget이라 "near"였음.
+    expect(budgetState({ min: 40000, max: 160000 }, 150000)).toBe('under')
+  })
+  it('is "over" (not "near") when the midpoint clearly exceeds budget despite min being under it', () => {
+    // mid = 210,000, budget보다 40% 비쌈 — 예전 로직이면 min(140,000)<=budget(150,000)이라 "near"로만
+    // 표시돼서 실제로 예산이 한참 부족한 코스가 "안에 들 수도 있다"로 오해를 줬음.
+    expect(budgetState({ min: 140000, max: 280000 }, 150000)).toBe('over')
+  })
+  it('is "near" when the wide-ranged midpoint sits close to budget', () => {
+    expect(budgetState({ min: 80000, max: 220000 }, 150000)).toBe('near') // mid=150,000, 예산과 정확히 같음
+  })
 })
 
 describe('formatPlaceCost', () => {

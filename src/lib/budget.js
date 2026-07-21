@@ -76,11 +76,20 @@ export function sumCostRange(places = []) {
   )
 }
 
-// 3단계 예산 상태: under(초록·max≤예산) / near(앰버·범위 걸침) / over(빨강·min>예산).
+// 3단계 예산 상태: under(초록) / near(앰버) / over(빨강).
+// 예전엔 "min~max 범위가 예산선에 걸치기만 하면 near"였는데, 장소별 비용 범위를 그냥
+// 합산하다 보니(sumCostRange) 범위 폭 자체가 장소 개수만큼 누적돼서 코스가 길수록(1박2일
+// 이상) 총 범위가 실제보다 훨씬 넓어지고, 중간값 기준으론 확실히 예산 안인데도 "근처"로
+// 뜨는 문제가 있었음(2026-07-21, "합해보면 부족한데 근처로 나온다" 피드백으로 발견). 그래서
+// 범위가 예산을 걸치는지가 아니라, 중간값이 예산에서 얼마나 떨어져 있는지로 판단한다 —
+// 예산의 ±10% 안쪽이면 근처, 그보다 확실히 낮으면 여유, 확실히 높으면 초과.
+const NEAR_TOLERANCE_RATIO = 0.1
 export function budgetState({ min, max }, budget) {
   if (!Number.isFinite(budget) || budget <= 0) return 'near'
-  if (max <= budget) return 'under'
-  if (min > budget) return 'over'
+  const mid = (min + max) / 2
+  const tolerance = budget * NEAR_TOLERANCE_RATIO
+  if (mid <= budget - tolerance) return 'under'
+  if (mid > budget + tolerance) return 'over'
   return 'near'
 }
 
