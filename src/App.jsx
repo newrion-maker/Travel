@@ -301,10 +301,17 @@ export default function App() {
     showCourses()
   }
 
-  // 로딩 안전장치: AI 응답이 12초(서버 wall-clock) 넘게 안 오면 강제로 결과 화면으로.
+  // 로딩 안전장치: 서버가 응답 자체를 못 주는(네트워크 끊김 등) 최악의 경우에만 강제로
+  // 결과 화면으로 넘어간다. 서버 자체 예산은 12초(WALL_CLOCK_MS, aiPlan.js)인데 예전엔
+  // 클라이언트 타임아웃이 13초라 여유가 1초뿐이었음 — 실제 네트워크 왕복/처리 오버헤드를
+  // 감안하면 서버가 제 예산 안에 끝내도 이 타임아웃이 먼저 발동하는 경우가 잦았고, 그러면
+  // "규칙 기반 임시 코스"를 먼저 보여준 뒤 뒤늦게 온 AI 결과로 화면이 다시 바뀌는 게 눈에
+  // 보였음(2026-07-21, 실사용 피드백 — "결과가 나왔다가 잠시 후 바뀐다"). 서버 응답을
+  // 끝까지 기다리는 게 원칙이라, 이 값은 "정상적으로 오래 걸리는 경우"가 아니라 "응답 자체가
+  // 영영 안 오는 경우"만 걸러내도록 서버 예산보다 충분히 여유 있게 잡는다.
   useEffect(() => {
     if (screen !== 'loading') return undefined
-    const timer = window.setTimeout(() => setScreen((s) => (s === 'loading' ? 'courses' : s)), 13000)
+    const timer = window.setTimeout(() => setScreen((s) => (s === 'loading' ? 'courses' : s)), 25000)
     return () => window.clearTimeout(timer)
   }, [screen])
 
