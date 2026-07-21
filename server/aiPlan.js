@@ -127,17 +127,24 @@ function normalizeRoleForArrival(role, kind, day, arrivalTime) {
   return normalized || (kind === 'food' ? '점심' : '관광')
 }
 
-// AI가 첫날 식사 역할을 전부 "카페"/"마무리 카페" 등으로만 붙이고 "점심"을 하나도 안 주는
-// 경우가 있어(관측됨), 저녁 도착이 아닌 첫날엔 항상 점심 하나는 있어야 한다는 원칙을 서버에서
-// 강제 보정한다. (앱 철학: 상식적인 기본 일정을 주고, 필요 없으면 유저가 직접 "빼기"로 지운다.)
-// "마무리 카페"는 예전엔 승격 대상에서 제외했었는데, 그 날 식사류 후보가 그 장소 하나뿐이면
-// 점심이 끝내 하나도 안 생기고, roleOrder 정렬상 관광(50)이 마무리 카페(70)보다 앞서서
-// "관광이 1번으로 나오는" 회귀가 있었음(2026-07-20, 실사용 리뷰로 발견) — "저녁"으로 이미
-// 확정된 것만 제외하고 나머지는 점심 후보로 쓸 수 있게 완화.
+// AI가 첫날 식사 역할을 전부 "카페"/"마무리 카페"/"저녁" 등으로만 붙이고 "점심"을 하나도
+// 안 주는 경우가 있어(관측됨), 저녁 도착이 아닌 첫날엔 항상 점심 하나는 있어야 한다는 원칙을
+// 서버에서 강제 보정한다. (앱 철학: 상식적인 기본 일정을 주고, 필요 없으면 유저가 직접
+// "빼기"로 지운다.) day===1·오후 도착의 끼니 우선순위는 ['점심','저녁'] — 점심이 1순위다.
+//
+// "저녁"으로 이미 붙은 항목은 원래 승격 대상에서 제외했는데, 그 날 식사류 후보가 그
+// 항목 하나뿐이면(2박 이상 코스에서 흔함 — 1일차는 보통 식사류 1곳) 점심이 끝내 하나도
+// 안 생기고, roleOrder 정렬상 관광(50)이 저녁(60)보다 앞서서 "관광이 1번으로 나오는"
+// 문제가 있었음(2026-07-21, 함덕해수욕장 미식 코스 실사용 리뷰로 발견). 식사류가 정확히
+// 하나뿐일 땐 그게 곧 그 날의 첫(유일한) 끼니이므로 "저녁" 라벨이어도 승격한다. 식사류가
+// 둘 이상이면(진짜 점심+저녁이 따로 있을 수 있음) 예전처럼 "저녁"으로 이미 확정된 건
+// 건드리지 않고 나머지 중에서만 고른다.
 function ensureLunchRole(dayPlaces, day, arrivalTime) {
   if (day !== 1 || arrivalTime === '저녁') return dayPlaces
   if (dayPlaces.some((p) => p.role === '점심')) return dayPlaces
-  const idx = dayPlaces.findIndex((p) => p.kind === 'food' && p.role !== '저녁')
+  const foodIndices = dayPlaces.reduce((acc, p, i) => (p.kind === 'food' ? [...acc, i] : acc), [])
+  if (!foodIndices.length) return dayPlaces
+  const idx = foodIndices.length === 1 ? foodIndices[0] : dayPlaces.findIndex((p) => p.kind === 'food' && p.role !== '저녁')
   if (idx === -1) return dayPlaces
   return dayPlaces.map((p, i) => (i === idx ? { ...p, role: '점심' } : p))
 }
