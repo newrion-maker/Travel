@@ -22,7 +22,7 @@ const initialInput = {
   region: '',
   regionLabel: '',
   period: '1박2일',
-  party: 2,
+  party: 1,
   arrivalTime: '오후',
   budget: 150000,
 }
