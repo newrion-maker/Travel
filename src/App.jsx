@@ -82,7 +82,6 @@ function readSharedState() {
   return {
     input: nextInput,
     answers: nextAnswers,
-    activeCourse: Math.max(0, Number(params.get('c')) || 0),
     screen: 'courses',
   }
 }
@@ -161,7 +160,6 @@ export default function App() {
   const [input, setInput] = useState(sharedState?.input || initialInput)
   const [answers, setAnswers] = useState(sharedState?.answers || {})
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [activeCourse, setActiveCourse] = useState(sharedState?.activeCourse || 0)
   const [tourPlaces, setTourPlaces] = useState([])
   const [aiPlans, setAiPlans] = useState({})
   const [aiPlanSource, setAiPlanSource] = useState('fallback')
@@ -266,7 +264,6 @@ export default function App() {
   function goHome() {
     setAnswers({})
     setQuestionIndex(0)
-    setActiveCourse(0)
     setViewingSaved(null)
     setScreen('splash')
   }
@@ -281,7 +278,6 @@ export default function App() {
   }
 
   function showCourses() {
-    setActiveCourse(0)
     setScreen('loading')
   }
 
@@ -344,8 +340,6 @@ export default function App() {
             tourPlaces={tourPlaces}
             aiPlans={aiPlans}
             aiPlanSource={aiPlanSource}
-            active={activeCourse}
-            onActive={setActiveCourse}
             onHome={goHome}
             onBack={() => setScreen('personality')}
           />
@@ -934,18 +928,17 @@ function ScrollGutter({ containerRef, direction = 'vertical' }) {
   )
 }
 
-function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, active, onActive, onBack, onHome }) {
+function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, onBack, onHome }) {
   const scrollRef = useRef(null)
   const [activeDay, setActiveDay] = useState(0)
   const [shareStatus, setShareStatus] = useState('')
   const [saveStatus, setSaveStatus] = useState('')
-  const [overrides, setOverrides] = useState({}) // { [courseKey]: { [slotId]: place } } — 탭별 스왑
+  const [overrides, setOverrides] = useState({}) // { [courseKey]: { [slotId]: place } } — 스왑
   const [removed, setRemoved] = useState({}) // { [courseKey]: { [slotId]: true } } — 유저가 뺀 장소
   const [inserted, setInserted] = useState({}) // { [courseKey]: { [afterSlotId]: place[] } } — 유저가 추가한 장소
   const [swapTarget, setSwapTarget] = useState(null) // { slotId, kind } | null
   const [addTarget, setAddTarget] = useState(null) // { afterSlotId } | null
-  const activeIndex = Math.min(Math.max(active, 0), courses.length - 1)
-  const baseCourse = courses[activeIndex]
+  const baseCourse = courses[0]
   const ai = aiPlans?.[baseCourse.key]
   const hasAiOverride = Boolean(ai)
   // AI가 실제로 설계한 코스면(ai.days) 일정(장소·순서·역할)까지 교체. 코스 메타(예산·성향)는 규칙 것 유지.
@@ -1055,23 +1048,6 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, acti
         onHome={onHome}
         right={`${input.regionLabel || input.region.split(' ').at(-1)} · ${input.period} · ${input.arrivalTime} 도착 · ${input.party}명`}
       />
-      <div className="px-4 pt-2">
-        <div className="grid rounded-[14px] bg-[#E9EEEE] p-1" style={{ gridTemplateColumns: `repeat(${courses.length}, minmax(0, 1fr))` }}>
-          {courses.map((item, idx) => (
-            <button
-              key={item.key}
-              onClick={() => {
-                setActiveDay(0)
-                setShareStatus('')
-                onActive(idx)
-              }}
-              className={`h-9 rounded-sq-lg text-[12.5px] font-extrabold ${activeIndex === idx ? 'bg-white text-ink shadow-seg' : 'text-[#7B8A8F]'}`}
-            >
-              {idx === 0 ? '맞춤형' : item.key === 'L' ? '호캉스' : item.key === 'F' ? '미식형' : '알뜰형'}
-            </button>
-          ))}
-        </div>
-      </div>
       <div className="relative min-h-0 flex-1">
         <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-4 pt-3">
         <article className="animate-fade-in rounded-card bg-white p-4 shadow-card">

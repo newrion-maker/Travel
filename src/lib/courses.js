@@ -435,7 +435,10 @@ function swapCheapestSameKind(basePlaces, pool) {
 /**
  * @param {object} input  FlowContext input (region, period, budget ...)
  * @param {object} personality  computePersonality() 결과
- * @returns {Array} 코스 3개 (메인 먼저, 서브 2개)
+ * @returns {Array} 코스 1개(성향 테스트가 고른 축)를 담은 배열. 배열로 감싸는 이유는
+ *   호출부(App.jsx의 courseMetas/courses[0]/courses.length 등)가 배열을 전제하기
+ *   때문 — 예전엔 3개(메인+서브 2개)였는데, 이미 성향 테스트로 개인화됐고 바꾸기/빼기/
+ *   추가로 직접 조정할 수 있어 서브 축 2개는 중복이라 판단해 뺐다(2026-07-21).
  */
 export function generateCourses(input, personality, tourPlaces = []) {
   const { region, regionLabel, period, arrivalTime, budget, party = 1 } = input
@@ -452,11 +455,7 @@ export function generateCourses(input, personality, tourPlaces = []) {
   )
   const hasApiPlaces = verifiedTourPlaces.length >= 3
 
-  // 메인 먼저, 나머지 축을 서브로 (§3.4). 당일치기는 숙박 축(L=호캉스)을 제외한다.
-  const axisPool = isDayTrip ? ['F', 'A'] : ['L', 'F', 'A']
-  const order = [personality.top, ...axisPool.filter((a) => a !== personality.top)]
-
-  return order.map((axis) => {
+  return [personality.top].map((axis) => {
     const fallbackPlaces = scalePlacesCost(isGangneung ? PLACES_GANGNEUNG[axis] : genericPlaces(city, axis), party)
     let basePlaces = buildApiPlaces(verifiedTourPlaces, axis, fallbackPlaces, tier, !hasApiPlaces)
     let days = buildDayPlans({
