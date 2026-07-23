@@ -1107,13 +1107,13 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, onBa
                         onRemove={place.slotId ? () => removeSlot(place.slotId) : null}
                       />
                       {idx < currentDay.places.length - 1 && (
-                        <div className="flex items-center justify-between gap-2">
+                        <div>
                           <DistanceHop from={place} to={currentDay.places[idx + 1]} />
                           {place.slotId && hasAnyAddCandidates && (
                             <button
                               type="button"
                               onClick={() => setAddTarget({ afterSlotId: place.slotId })}
-                              className="h-6 shrink-0 rounded-full bg-[#F0F3F3] px-2 text-[10.5px] font-extrabold text-teal-deep"
+                              className="mb-1.5 h-8 w-full rounded-[12px] border border-dashed border-line text-[12px] font-extrabold text-teal-deep"
                             >
                               + 추가
                             </button>
