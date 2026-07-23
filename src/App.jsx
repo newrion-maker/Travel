@@ -1115,7 +1115,7 @@ function CoursesScreen({ input, courses, tourPlaces, aiPlans, aiPlanSource, onBa
                               onClick={() => setAddTarget({ afterSlotId: place.slotId })}
                               className="mb-1.5 h-8 w-full rounded-[12px] border border-dashed border-line text-[12px] font-extrabold text-teal-deep"
                             >
-                              + 추가
+                              + 이 코스에 추가
                             </button>
                           )}
                         </div>
