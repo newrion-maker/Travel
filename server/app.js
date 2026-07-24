@@ -52,6 +52,11 @@ const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...envOrigins])
 
 function applyCors(req, res) {
   const origin = req.headers.origin
+  // TEMP DEBUG(2026-07-24): 토스 라이브 앱에서 실제로 어떤 Origin이 들어오는지 확인하려고
+  // 임시로 남겨둔 로그. 원인 파악되면 지워도 됨.
+  console.log(
+    `[cors-debug] ${req.method} ${req.url} origin=${origin || '(none)'} allowed=${Boolean(origin) && ALLOWED_ORIGINS.has(origin)} ua=${req.headers['user-agent'] || '(none)'}`,
+  )
   if (!origin || !ALLOWED_ORIGINS.has(origin)) return
   res.setHeader('Access-Control-Allow-Origin', origin)
   res.setHeader('Vary', 'Origin')
