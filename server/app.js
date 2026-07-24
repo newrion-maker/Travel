@@ -40,8 +40,18 @@ loadLocalEnv()
 // 계속 샘플 데이터로 폴백되는 문제(2026-07-24)가 있었음 — 이 API들은 로그인/결제 등
 // 민감 정보가 없고 IP 기준 요청 제한(checkRateLimit)이 이미 걸려있어, 화이트리스트
 // 대신 들어온 Origin을 그대로 반영해 허용한다.
+// TEMP DEBUG(2026-07-24): 카카오맵 JS SDK 도메인 화이트리스트에 등록할 정확한 값을
+// 알아내려고, 실제 라이브 앱이 보내는 Origin을 잠깐 기억해둔다. 확인되면 이 블록과
+// /api/debug-origins 라우트를 통째로 지울 것.
+const recentOrigins = []
+function recordOrigin(req) {
+  recentOrigins.push({ time: new Date().toISOString(), path: req.url, origin: req.headers.origin || '(none)' })
+  if (recentOrigins.length > 20) recentOrigins.shift()
+}
+
 function applyCors(req, res) {
   const origin = req.headers.origin
+  recordOrigin(req)
   if (!origin) return
   res.setHeader('Access-Control-Allow-Origin', origin)
   res.setHeader('Vary', 'Origin')
@@ -138,6 +148,12 @@ function readJsonBody(req) {
 async function handleApi(req, res, url) {
   if (url.pathname === '/api/health') {
     sendJson(res, 200, { ok: true })
+    return
+  }
+
+  // TEMP DEBUG(2026-07-24): recordOrigin 참고.
+  if (url.pathname === '/api/debug-origins') {
+    sendJson(res, 200, { recentOrigins })
     return
   }
 
