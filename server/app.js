@@ -52,12 +52,12 @@ const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...envOrigins])
 
 function applyCors(req, res) {
   const origin = req.headers.origin
-  // TEMP DEBUG(2026-07-24): 토스 라이브 앱에서 실제로 어떤 Origin이 들어오는지 확인하려고
-  // 임시로 남겨둔 로그. 원인 파악되면 지워도 됨.
-  console.log(
-    `[cors-debug] ${req.method} ${req.url} origin=${origin || '(none)'} allowed=${Boolean(origin) && ALLOWED_ORIGINS.has(origin)} ua=${req.headers['user-agent'] || '(none)'}`,
-  )
-  if (!origin || !ALLOWED_ORIGINS.has(origin)) return
+  // 2026-07-24: 실제 출시된 토스 앱이 보내는 Origin이 ALLOWED_ORIGINS 화이트리스트와
+  // 다를 수 있다는 의심(라이브에서만 계속 샘플 데이터로 폴백됨)이 있어, 이 API들은
+  // 로그인/결제 등 민감 정보가 없고 IP 기준 요청 제한(checkRateLimit)이 이미 걸려있는
+  // 점을 감안해 화이트리스트 검사 대신 들어온 Origin을 그대로 반영해 허용한다.
+  console.log(`[cors-debug] ${req.method} ${req.url} origin=${origin || '(none)'} ua=${req.headers['user-agent'] || '(none)'}`)
+  if (!origin) return
   res.setHeader('Access-Control-Allow-Origin', origin)
   res.setHeader('Vary', 'Origin')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
