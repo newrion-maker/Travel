@@ -12,12 +12,17 @@
 
 - 원인: `server/app.js`의 `applyCors`가 `ALLOWED_ORIGINS` 화이트리스트(로컬호스트 +
   `https://budgettrip.private-apps.tossmini.com`)에 없는 Origin이면 CORS 헤더를 아예
-  안 붙였음. 실제 출시된 토스 앱이 보내는 Origin이 이 화이트리스트와 달랐던 것으로 추정
-  (Mac이 없어 Safari 원격 디버깅으로 직접 확인은 못 했음).
-- 조치: 화이트리스트 검사를 제거하고, 들어온 Origin을 그대로 반영해 허용하도록 변경.
-  이 API들은 로그인/결제 등 민감 정보가 없고 IP 기준 요청 제한(`checkRateLimit`)이 이미
-  걸려있어 CORS를 느슨하게 풀어도 안전하다고 판단. `DEFAULT_ALLOWED_ORIGINS`/
-  `envOrigins`/`ALLOWED_ORIGINS` 관련 죽은 코드 삭제.
+  안 붙였음. 실제 출시된 토스 앱의 진짜 도메인은 `https://budgettrip.apps.tossmini.com`
+  (private- 접두어 없음)이라 화이트리스트에 안 걸려 있었음 — Mac이 없어 Safari 원격
+  디버깅은 못 했고, 대신 서버에 최근 요청 Origin을 잠깐 기록하는 임시
+  `/api/debug-origins` 엔드포인트를 만들어 실제 값을 확인한 뒤 바로 제거함.
+- 조치 1(백엔드 CORS): 화이트리스트 검사를 제거하고, 들어온 Origin을 그대로 반영해
+  허용하도록 변경. 이 API들은 로그인/결제 등 민감 정보가 없고 IP 기준 요청 제한
+  (`checkRateLimit`)이 이미 걸려있어 CORS를 느슨하게 풀어도 안전하다고 판단.
+  `DEFAULT_ALLOWED_ORIGINS`/`envOrigins`/`ALLOWED_ORIGINS` 관련 죽은 코드 삭제.
+- 조치 2(카카오맵): 같은 이유로 Kakao Maps JS SDK 도메인 화이트리스트에도
+  `https://budgettrip.apps.tossmini.com`이 빠져 있어 지도가 안 뜨고 있었음 — 콘솔에서
+  직접 추가.
 - 검증: `npm test`(26/26) 통과, Render 재배포 후 사용자가 실제 토스 앱에서 재확인 —
   샘플 데이터 배지 없이 실제 데이터·지도 정상 표시 확인됨.
 
