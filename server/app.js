@@ -36,27 +36,12 @@ loadLocalEnv()
 
 // 앱인토스 WebView 배포 시 프론트는 https://<appName>.private-apps.tossmini.com 에서 열리고
 // 이 서버(백엔드)는 별도 도메인(Render 등)이라 CORS 허용이 없으면 /api/* 호출이 전부 막힌다.
-// ALLOWED_ORIGINS 환경변수(콤마 구분)로 배포 도메인을 추가할 수 있다.
-const DEFAULT_ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5181',
-  'http://127.0.0.1:5175',
-  'https://budgettrip.private-apps.tossmini.com',
-]
-const envOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
-const ALLOWED_ORIGINS = new Set([...DEFAULT_ALLOWED_ORIGINS, ...envOrigins])
-
+// 화이트리스트 방식은 실제 출시된 토스 앱이 보내는 Origin이 예상과 달라 라이브에서만
+// 계속 샘플 데이터로 폴백되는 문제(2026-07-24)가 있었음 — 이 API들은 로그인/결제 등
+// 민감 정보가 없고 IP 기준 요청 제한(checkRateLimit)이 이미 걸려있어, 화이트리스트
+// 대신 들어온 Origin을 그대로 반영해 허용한다.
 function applyCors(req, res) {
   const origin = req.headers.origin
-  // 2026-07-24: 실제 출시된 토스 앱이 보내는 Origin이 ALLOWED_ORIGINS 화이트리스트와
-  // 다를 수 있다는 의심(라이브에서만 계속 샘플 데이터로 폴백됨)이 있어, 이 API들은
-  // 로그인/결제 등 민감 정보가 없고 IP 기준 요청 제한(checkRateLimit)이 이미 걸려있는
-  // 점을 감안해 화이트리스트 검사 대신 들어온 Origin을 그대로 반영해 허용한다.
-  console.log(`[cors-debug] ${req.method} ${req.url} origin=${origin || '(none)'} ua=${req.headers['user-agent'] || '(none)'}`)
   if (!origin) return
   res.setHeader('Access-Control-Allow-Origin', origin)
   res.setHeader('Vary', 'Origin')
