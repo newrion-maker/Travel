@@ -38,12 +38,12 @@ loadLocalEnv()
 // 이 서버(백엔드)는 별도 도메인(Render 등)이라 CORS 허용이 없으면 /api/* 호출이 전부 막힌다.
 // 화이트리스트 방식은 실제 출시된 토스 앱이 보내는 Origin이 예상(private-apps.tossmini.com)과
 // 달라(실제로는 apps.tossmini.com) 라이브에서만 계속 샘플 데이터로 폴백되는 문제(2026-07-24)가
-// 있었음 — 이 API들은 로그인/결제 등 민감 정보가 없고 IP 기준 요청 제한(checkRateLimit)이
-// 이미 걸려있어, 화이트리스트 대신 들어온 Origin을 그대로 반영해 허용한다.
+// 있었고, 이어서 "테스트" 모드 WebView는 아예 Origin 헤더 자체를 안 보내는 경우도 확인됨.
+// 이 API들은 로그인/결제 등 민감 정보가 없고 IP 기준 요청 제한(checkRateLimit)이 이미
+// 걸려있어, Origin 유무/값과 무관하게 항상 허용한다(있으면 그대로 반영, 없으면 와일드카드).
 function applyCors(req, res) {
   const origin = req.headers.origin
-  if (!origin) return
-  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Origin', origin || '*')
   res.setHeader('Vary', 'Origin')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
