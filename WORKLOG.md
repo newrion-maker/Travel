@@ -1,5 +1,23 @@
 # 작업 로그
 
+## 2026-07-27 — `.ait` 빌드에 VITE_API_BASE_URL이 안 박혀서 새 빌드가 계속 샘플 데이터만 보여주던 문제
+
+사용자 피드백: 업데이트 전(라이브) 버전은 정상인데, 업데이트할 새 빌드는 "테스트" 모드에서
+계속 샘플 데이터만 나온다고 보고.
+
+- 원인: 이번 세션에서 `npm run ait:build`를 실행할 때 로컬 `.env.local`에
+  `VITE_API_BASE_URL`이 설정돼 있지 않았음(다른 필수 키들은 다 있었는데 이것만 누락).
+  이 값이 비어있으면 프론트가 상대경로(`/api/tour-places`)로 호출하는데, 토스에 배포되면
+  프론트(`budgettrip.apps.tossmini.com`)와 백엔드(Render)가 다른 도메인이라 상대경로로는
+  백엔드에 아예 닿지 않아 매 요청이 실패 → 항상 샘플로 폴백됨. `grep`으로 빌드된
+  `dist/assets/index-*.js`에 `budgettrip-api.onrender.com` 문자열이 아예 없는 것으로 확인.
+- 조치: `.env.local`에 `VITE_API_BASE_URL=https://budgettrip-api.onrender.com` 추가 후
+  재빌드.
+- 검증: `vite preview`(로컬 dev 프록시 없이 dist를 정적 서빙 — 토스처럼 프론트/백엔드가
+  다른 도메인인 상황을 그대로 재현)로 띄운 뒤 Playwright로 실제 흐름을 재현해, 네트워크
+  요청이 `https://budgettrip-api.onrender.com/api/tour-places`(절대경로)로 나가서 200을
+  받고, "실시간 장소 반영" 배지가 뜨는 것까지 확인.
+
 ## 2026-07-24 — 잠깐 샘플 데이터로 나왔다가 실시간 장소로 바뀌는 깜빡임 수정
 
 사용자 피드백: 로딩이 길면 실시간 장소가 바로 나오는데, 코스가 순식간에 나오면 그건
