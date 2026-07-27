@@ -161,6 +161,7 @@ export default function App() {
   const [answers, setAnswers] = useState(sharedState?.answers || {})
   const [questionIndex, setQuestionIndex] = useState(0)
   const [tourPlaces, setTourPlaces] = useState([])
+  const [tourPlacesReady, setTourPlacesReady] = useState(false)
   const [aiPlans, setAiPlans] = useState({})
   const [aiPlanSource, setAiPlanSource] = useState('fallback')
   const [adGateOpen, setAdGateOpen] = useState(false)
@@ -176,8 +177,10 @@ export default function App() {
     // 지역이 바뀌면 이전 지역의 AI 플랜은 무효 — 새 플랜을 받기 전까지 규칙 코스로 되돌린다.
     setAiPlans({})
     aiReqSigRef.current = ''
+    setTourPlacesReady(false)
     if (!hasTourApiKey || !input.region) {
       setTourPlaces([])
+      setTourPlacesReady(true)
       return
     }
 
@@ -189,6 +192,9 @@ export default function App() {
       .catch(() => {
         if (alive) setTourPlaces([])
       })
+      .finally(() => {
+        if (alive) setTourPlacesReady(true)
+      })
 
     return () => {
       alive = false
@@ -197,6 +203,11 @@ export default function App() {
 
   useEffect(() => {
     if (!['loading', 'courses'].includes(screen)) return
+    // 실시간 장소 조회가 끝나기 전에는(로딩 화면일 때만) 대기 — 안 그러면 아직 빈 tourPlaces로
+    // 만들어진 샘플 코스로 먼저 AI 플랜을 받아 화면을 보여준 뒤, 실시간 장소가 도착하면 다시
+    // 바뀌는 게 눈에 보임(2026-07-24, "잠깐 샘플로 나왔다가 실시간으로 바뀐다" 피드백). 이미
+    // 'courses' 화면이면(예: 아래 25초 안전장치로 강제 진입한 경우) 더 기다리지 않고 진행한다.
+    if (screen === 'loading' && !tourPlacesReady) return undefined
 
     let alive = true
     let applied = false
@@ -259,7 +270,7 @@ export default function App() {
       // 이 실행이 결과를 반영하기 전에 취소됐다면 서명을 풀어 다음 실행이 다시 요청하게 한다.
       if (!applied) aiReqSigRef.current = ''
     }
-  }, [screen, input, personality, courses, tourPlaces])
+  }, [screen, input, personality, courses, tourPlaces, tourPlacesReady])
 
   function goHome() {
     setAnswers({})
